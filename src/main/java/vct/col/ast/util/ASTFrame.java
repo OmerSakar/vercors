@@ -9,7 +9,9 @@ import vct.col.ast.expr.OperatorExpression;
 import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.composite.*;
 import vct.col.ast.stmt.decl.*;
+import vct.col.ast.type.ClassType;
 
+import java.util.ArrayList;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -331,11 +333,19 @@ public abstract class ASTFrame<T> {
       }
     }
 
-    
+    private int genericClassTypeParameters = 0;
+
     @Override
     public void visit(ASTClass node){
       switch(action){
       case ENTER:
+        if (node.kind == ASTClass.ClassKind.Abstract && node.parameters != null && node.parameters.length > 0) {
+          for (DeclarationStatement clazzDecl: node.parameters) {
+            ASTClass tmp = new ASTClass(clazzDecl.name(), ASTClass.ClassKind.Abstract);
+            class_stack.push(tmp);
+            genericClassTypeParameters++;
+          }
+        }
         class_stack.push((ASTClass)node);
         variables.enter();
         recursively_add_class_info((ASTClass)node);
@@ -348,6 +358,10 @@ public abstract class ASTFrame<T> {
         break;
       case LEAVE:
         variables.leave();
+        while (genericClassTypeParameters > 0) {
+          class_stack.pop();
+          genericClassTypeParameters--;
+        }
         class_stack.pop(); 
         break;
       default:
@@ -500,7 +514,11 @@ public abstract class ASTFrame<T> {
     }
 
   };
-  
+
+  public boolean searchInClassStack(String ct) {
+    return new ArrayList<>(class_stack).stream().anyMatch(c -> c.getName().equals(ct));
+  }
+
   private void recursively_add_class_info(ASTClass cl) {
     for (int i=0;i<cl.super_classes.length;i++){
       if (source != null) {

@@ -287,11 +287,13 @@ public class VerCorsProgramFactory implements
           for(DeclarationStatement decl:cl.dynamicFields()){
             api.prog.add_field(program, decl.getOrigin(), decl.name(), decl.getType().apply(type));
           }
+        } else if (cl.kind == ASTClass.ClassKind.Abstract) {
+          api.prog.add_adt(program, cl.getOrigin(), cl.getName(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         } else {
           throw new HREError("bad class entry: %s",cl.name());
         }
       } else if (entry instanceof AxiomaticDataType) {
-        AxiomaticDataType adt=(AxiomaticDataType)entry;
+        AxiomaticDataType adt= (AxiomaticDataType) entry;
         ArrayList<DFunc> funcs=new ArrayList<DFunc>();
         for(Method m:adt.constructorsJava()){
           List<Triple<Origin,String,T>> args=new ArrayList<Triple<Origin,String,T>>();

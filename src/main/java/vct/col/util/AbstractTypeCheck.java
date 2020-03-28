@@ -16,6 +16,7 @@ import vct.col.ast.stmt.terminal.ReturnStatement;
 import vct.col.ast.type.*;
 import vct.col.ast.util.RecursiveVisitor;
 import vct.col.rewrite.InferADTTypes;
+import vct.col.rewrite.MonomorphizeGenericClass;
 import vct.col.rewrite.MultiSubstitution;
 import vct.col.rewrite.TypeVarSubstitution;
 import vct.silver.SilverTypeMap;
@@ -81,6 +82,10 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
       } else {
         Debug("not a variable");
       }
+    }
+    if (searchInClassStack(t.getFullName())) {
+      t.setType(t);
+      return;
     }
     ASTDeclaration decl=source().find_decl(t.getNameFull());
     if (decl==null){
@@ -1739,6 +1744,7 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
     // TODO: check expression against method type.
   }
   public void visit(ASTClass c){
+
     super.visit(c);
     // TODO: type checks on class.
   }

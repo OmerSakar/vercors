@@ -354,6 +354,7 @@ public class Main
         passes.add("dafny"); // run backend
       } else if (silver.used()||chalice.get()) {
         passes=new LinkedBlockingDeque<String>();
+        passes.add("flatten_generic_classes");
         passes.add("java_resolve");
 
         if (silver.used() &&
@@ -374,8 +375,10 @@ public class Main
           passes.add("lift_declarations");
         }
 
+
         passes.add("check");
         passes.add("infer_adt_types");
+
 
         passes.add("check");
         passes.add("standardize");
@@ -1053,6 +1056,11 @@ public class Main
     defined_passes.put("infer_adt_types",new CompilerPass("Transform typeless collection constructors by inferring their types."){
       public ProgramUnit apply(ProgramUnit arg,String ... args){
         return new InferADTTypes(arg).rewriteAll();
+      }
+    });
+    defined_passes.put("flatten_generic_classes",new CompilerPass("Monomorphize generic classes."){
+      public ProgramUnit apply(ProgramUnit arg,String ... args){
+        return new MonomorphizeGenericClass(arg).rewriteAll();
       }
     });
     defined_passes.put("rm_cons",new CompilerPass("???"){

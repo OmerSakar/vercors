@@ -11,7 +11,7 @@ expression : expr ;
 
 program  : (claz|kernel|block|field|method_decl)* (block)? EOF ;
 
-claz : contract 'class' identifier '{'( field | method_decl | constructor )* '}' ;
+claz : contract 'class' identifier typeArgs? '{'( field | method_decl | constructor )* '}' ;
 
 kernel : 'kernel' identifier '{' ( kernel_field | method_decl )* '}' ;
 
@@ -21,7 +21,7 @@ field : type identifier ( ',' identifier )* ';' ;
 
 modifiers : ( 'static' | 'thread_local' | 'inline' | 'pure' )*;
 
-method_decl : contract modifiers type identifier '(' args ')' ( '=' expr ';' | ';' | block ) ;
+method_decl : contract modifiers typeArgs? type identifier '(' args ')' ( '=' expr ';' | ';' | block ) ;
 
 constructor : contract identifier '(' args ')' ( block | ';' ) ;
 
@@ -107,7 +107,7 @@ unaryExpr
  ;
 
 newExpr
- : 'new' identifier tuple
+ : 'new' identifier typeArgs? tuple
  | 'new' non_array_type new_dims
  | nonTarget
  | target
@@ -265,7 +265,7 @@ gen_id : identifier | CONTAINER ;
 
 classType : identifier typeArgs?;
 
-typeArgs : '<' expr (',' expr)* '>';
+typeArgs : '<' type (',' type)* '>';
 
 
 CONTAINER : 'seq' | 'set' | 'bag' ;

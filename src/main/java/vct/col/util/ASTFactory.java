@@ -125,6 +125,9 @@ public class ASTFactory<E> implements FrameControl {
   }
 
   public void addZeroConstructor(ASTClass cl){
+    if (cl.kind==ClassKind.Abstract && cl.parameters != null && cl.parameters.length > 0){
+      return;
+    }
     enter();
     setOrigin(cl.getOrigin());
     ContractBuilder cb=new ContractBuilder();

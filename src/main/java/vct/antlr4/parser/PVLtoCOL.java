@@ -4,6 +4,7 @@ import hre.lang.HREError;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import org.antlr.v4.runtime.BufferedTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -79,18 +80,38 @@ public class PVLtoCOL extends ANTLRtoCOL implements PVFullVisitor<ASTNode> {
       c=(Contract)convert(ctx,0);
     }
     String name=getIdentifier(ctx,2);
-    ASTClass cl=create.ast_class(name,ClassKind.Plain,null,null,null);
-    for(int i=4;i<ctx.children.size()-1;i++){
-      ASTNode node=convert(ctx.children.get(i));
-      if (node.isValidFlag(ASTNode.STATIC) && node.isStatic()){
-        cl.add_static(node);
-      } else {
-        cl.add_dynamic(node);
-      } 
+    if (ctx.children.size() > 3 && ctx.getChild(3) instanceof TypeArgsContext) {
+      List<ParseTree> typeArgsCtx = ((TypeArgsContext) ctx.getChild(3)).children;
+
+      DeclarationStatement[] decls =new DeclarationStatement[(typeArgsCtx.size()-1)/2];
+      for(int i=1;i<typeArgsCtx.size()-1;i+=2){
+        decls[(i-1)/2] = create.field_decl(typeArgsCtx.get(i).getText(), create.type_variable(typeArgsCtx.get(i).getText()));
+      }
+      ASTClass cl = create.ast_class(name, ClassKind.Abstract, decls, null, null);
+      for (int i = 5; i < ctx.children.size() - 1; i++) {
+        ASTNode node = convert(ctx.children.get(i));
+        if (node.isValidFlag(ASTNode.STATIC) && node.isStatic()) {
+          cl.add_static(node);
+        } else {
+          cl.add_dynamic(node);
+        }
+      }
+      cl.setContract(c);
+      return cl;
+    } else {
+      ASTClass cl = create.ast_class(name, ClassKind.Plain, null, null, null);
+      for (int i = 4; i < ctx.children.size() - 1; i++) {
+        ASTNode node = convert(ctx.children.get(i));
+        if (node.isValidFlag(ASTNode.STATIC) && node.isStatic()) {
+          cl.add_static(node);
+        } else {
+          cl.add_dynamic(node);
+        }
+      }
+      cl.setContract(c);
+      cl.setFlag(ASTFlags.FINAL, true);
+      return cl;
     }
-    cl.setContract(c);
-    cl.setFlag(ASTFlags.FINAL, true);
-    return cl;
   }
 
   @Override
@@ -353,6 +374,12 @@ public class PVLtoCOL extends ANTLRtoCOL implements PVFullVisitor<ASTNode> {
       ASTNode args[]=getTuple((ParserRuleContext)ctx.getChild(2));
       String name=getIdentifier(ctx,1);
       return create.new_object(create.class_type(name), args);
+    }
+    if (match(ctx,"new",null,null,tuple)){
+      ASTNode args[]=getTuple((ParserRuleContext)ctx.getChild(3));
+      ASTNode typeArgs[]=getTuple((ParserRuleContext)ctx.getChild(2));
+      String name=getIdentifier(ctx,1);
+      return create.new_object(create.class_type(name,typeArgs), args);
     }
     if (match(ctx,"new",null,"New_dims")){
       Type t = checkType(convert(ctx,1));
