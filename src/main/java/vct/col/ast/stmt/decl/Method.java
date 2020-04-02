@@ -58,13 +58,18 @@ public class Method extends ASTDeclaration {
   private Hashtable<String, Contract> spec=new Hashtable<String,Contract>();
   private ASTNode body;
   public final Kind kind;
-  
+  public final DeclarationStatement typeParameters[];
+
   public boolean usesVarArgs(){
     return var_args;
   }
   
   public Method(String name,Type return_type,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    this(Kind.Plain,name,return_type,contract,args,varArgs,body);
+    this(Kind.Plain,name,return_type,new DeclarationStatement[0],contract,args,varArgs,body);
+  }
+
+  public Method(Kind kind, String name, Type return_type,Contract contract,DeclarationStatement args[],ASTNode body) {
+    this(kind,name,return_type,new DeclarationStatement[0],contract,args,false,body);
   }
 
   public Method(Kind kind, String name, String args[], boolean many, FunctionType t) {
@@ -80,11 +85,15 @@ public class Method extends ASTDeclaration {
       this.args[i].setOrigin(new MessageOrigin("dummy origin for argument " + i));
       i++;
     }
-    
+    this.typeParameters = new DeclarationStatement[0];
     this.kind=kind;
   }
-  
-  public Method(Kind kind, String name,Type return_type,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
+  public Method(Kind kind, String name,Type return_type, Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body) {
+    this(kind, name, return_type, new DeclarationStatement[0], contract, args, varArgs, body);
+  }
+
+
+  public Method(Kind kind, String name,Type return_type, DeclarationStatement[] typeParameters, Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
     super(name);
     this.return_type=return_type;
     this.args=Arrays.copyOf(args,args.length);
@@ -94,6 +103,7 @@ public class Method extends ASTDeclaration {
     }
     this.body=body;
     this.kind=kind;
+    this.typeParameters = typeParameters;
     setContract(contract);
   }
 

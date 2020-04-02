@@ -88,7 +88,7 @@ public class GenerateGenericClassInstance extends AbstractRewriter {
 
         Type mappedType = this.mapping.get(indexOpt.getAsInt());
 
-        result = rewrite(mappedType);
+        result = mappedType;
     }
 
     @Override
@@ -103,6 +103,10 @@ public class GenerateGenericClassInstance extends AbstractRewriter {
                     rewrite(m.getArgs()),
                     rewrite(m.getBody())
             );
+        } else if (m.kind != Method.Kind.Pure) {
+            Fail("Methods in generic classes are not supported.");
+        } else {
+            super.visit(m);
         }
     }
 }

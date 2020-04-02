@@ -779,6 +779,16 @@ public class JavaPrinter extends AbstractPrinter {
     if (m.getKind()==Method.Kind.Pure) {
        out.printf("/*@ pure */ ");
     }
+    if (m.typeParameters.length != 0) {
+      out.printf("<");
+      out.printf("%s", m.typeParameters[0].getType().toString());
+      out.printf(",");
+      for (int i = 1; i < m.typeParameters.length; i++) {
+        out.printf(",");
+        out.printf("%s", m.typeParameters[i].getType().toString());
+      }
+      out.printf(">");
+    }
     out.printf("%s(",name);
     if (N>0) {
       DeclarationStatement args[]=m.getArgs();

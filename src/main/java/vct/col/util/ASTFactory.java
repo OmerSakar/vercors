@@ -586,9 +586,13 @@ public BlockStatement block(Origin origin, ASTNode ... args) {
    * Create a function declaration
    */
   public Method function_decl(Type returns,Contract contract,String name,DeclarationStatement args[],ASTNode body){
-    return method_kind(Method.Kind.Pure,returns,contract,name,args,false,body);
+    return method_kind(Method.Kind.Pure,returns,new DeclarationStatement[0],contract,name,args,false,body);
   }
-  
+
+  public Method function_decl(Type returns,DeclarationStatement[] typeParameter, Contract contract,String name,DeclarationStatement args[],ASTNode body){
+    return method_kind(Method.Kind.Pure,returns,typeParameter,contract,name,args,false,body);
+  }
+
   /**
    * Get the current origin. 
    */
@@ -688,26 +692,31 @@ public BlockStatement block(Origin origin, ASTNode ... args) {
    * Create a method declaration
    */
   public Method method_decl(Type returns,Contract contract,String name,DeclarationStatement args[],ASTNode body){
-    return method_kind(Method.Kind.Plain,returns,contract,name,args,false,body);
+    return method_kind(Method.Kind.Plain,returns,new DeclarationStatement[0],contract,name,args,false,body);
   }
   public Method method_decl(Type returns,Contract contract,String name,List<DeclarationStatement> args,ASTNode body){
-    return method_kind(Method.Kind.Plain,returns,contract,name,args.toArray(new DeclarationStatement[args.size()]),false,body);
+    return method_kind(Method.Kind.Plain,returns,new DeclarationStatement[0],contract,name,args.toArray(new DeclarationStatement[args.size()]),false,body);
   }
   
   /**
    * Create a method declaration
    */
   public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,DeclarationStatement args[],ASTNode body){
-    return method_kind(kind,returns,contract,name,args,false,body);
+    return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,false,body);
   }
   /**
    * Create a method declaration
    */
-  public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){    
-    return method_kind(kind,returns,contract,name,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
+  public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){
+    return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
   }
-  public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    Method res=new Method(kind,name,returns,contract,args,varArgs,body);
+
+  public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body) {
+    return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,varArgs,body);
+  }
+
+    public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameter,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body){
+    Method res=new Method(kind,name,returns,typeParameter,contract,args,varArgs,body);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);
     return res;
@@ -880,7 +889,7 @@ public BlockStatement block(Origin origin, ASTNode ... args) {
    * Create a predicate declaration.
    */
   public Method predicate(String name, ASTNode body,DeclarationStatement ... args) {
-    return method_kind(Method.Kind.Predicate,primitive_type(PrimitiveSort.Resource),null,name,args,false,body);
+    return method_kind(Method.Kind.Predicate,primitive_type(PrimitiveSort.Resource),new DeclarationStatement[0],null,name,args,false,body);
   } 
   
   public Method predicate(String name, ASTNode body,List<DeclarationStatement> args) {

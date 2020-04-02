@@ -626,25 +626,35 @@ public class PVLtoCOL extends ANTLRtoCOL implements PVFullVisitor<ASTNode> {
   @Override
   public ASTNode visitMethod_decl(Method_declContext ctx) {
     Contract c=(Contract) convert(ctx.children.get(0));
-    Type returns=(Type)convert(ctx.children.get(2));
-    String name=getIdentifier(ctx,3);
-    DeclarationStatement args[]=convertArgs((ArgsContext) ctx.children.get(5));
+    DeclarationStatement[] typeArgs = new DeclarationStatement[0];
+    int offset = 0;
+    if (ctx.getChild(2) instanceof TypeArgsContext) {
+      List<ParseTree> typeArgsCtx = ((TypeArgsContext) ctx.getChild(2)).children;
+      typeArgs =new DeclarationStatement[(typeArgsCtx.size()-1)/2];
+      for(int i=1;i<typeArgsCtx.size()-1;i+=2){
+        typeArgs[(i-1)/2] = create.field_decl(typeArgsCtx.get(i).getText(), create.type_variable(typeArgsCtx.get(i).getText()));
+      }
+      offset = 1;
+    }
+    Type returns=(Type)convert(ctx.children.get(2+offset));
+    String name=getIdentifier(ctx,3+offset);
+    DeclarationStatement args[]=convertArgs((ArgsContext) ctx.children.get(5+offset));
     Kind kind=Kind.Plain;
     ASTNode body;
-    if (match(7,false,ctx,";")){
+    if (match(7+offset,false,ctx,";")){
       body=null;
       if (returns.isPrimitive(PrimitiveSort.Resource)) {
         kind=Kind.Predicate;
       }
-    } else if (match(7,false,ctx,"=",null,";")){
-      body=convert(ctx,8);
+    } else if (match(7+offset,false,ctx,"=",null,";")){
+      body=convert(ctx,8+offset);
       if (returns.isPrimitive(PrimitiveSort.Resource)) {
         kind=Kind.Predicate;
       } else {
         kind=Kind.Pure;
       }
     } else {
-      body=convert(ctx,7);
+      body=convert(ctx,7+offset);
     }
     ParserRuleContext flags=(ParserRuleContext)ctx.getChild(1);
     for(int i=0;i<flags.getChildCount();i++){
@@ -652,7 +662,7 @@ public class PVLtoCOL extends ANTLRtoCOL implements PVFullVisitor<ASTNode> {
         kind=Kind.Pure;
       }
     }
-    ASTNode res=create.method_kind(kind,returns,c, name, args ,body);
+    ASTNode res=create.method_kind(kind,returns,typeArgs,c, name, args , false,body);
     scan_modifiers(flags, res);
     return res;
   }

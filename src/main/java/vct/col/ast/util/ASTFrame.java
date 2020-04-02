@@ -369,11 +369,23 @@ public abstract class ASTFrame<T> {
       }
     }
 
+    private int genericMethodTypeParameters = 0;
+
     @Override
     public void visit(Method node){
       switch(action){
       case ENTER:
         method_stack.push(node);
+        if (node.typeParameters.length > 0) {
+          ASTClass current = class_stack.pop();
+          for (DeclarationStatement typeParam: node.typeParameters) {
+            ASTClass tmp = new ASTClass(typeParam.name(), ASTClass.ClassKind.Abstract);
+            class_stack.push(tmp);
+            genericMethodTypeParameters++;
+          }
+          class_stack.push(current);
+        }
+
         variables.enter();
         for (DeclarationStatement decl:(node).getArgs()) {
           variables.add(decl.name(), new VariableInfo(decl, NameExpression.Kind.Argument));
@@ -382,6 +394,15 @@ public abstract class ASTFrame<T> {
         break;
       case LEAVE:
         method_stack.pop();
+        if (genericMethodTypeParameters > 0) {
+          ASTClass current = class_stack.pop();
+
+          while (genericMethodTypeParameters > 0) {
+            class_stack.pop();
+            genericMethodTypeParameters--;
+          }
+          class_stack.push(current);
+        }
         variables.leave();
         break;
       default:

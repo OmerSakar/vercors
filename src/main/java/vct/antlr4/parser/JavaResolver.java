@@ -269,8 +269,9 @@ public class JavaResolver extends AbstractRewriter {
           }
         }
       }
+    } else if (!searchInClassStack(t.getFullName())) {
+      Fail("cannot resolve %s",new ClassName(name));
     }
-    Fail("cannot resolve %s",new ClassName(name));
   }
   
   public static final String FQN_SEP="_DOT_";

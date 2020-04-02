@@ -253,6 +253,7 @@ public class SilverClassReduction extends AbstractRewriter {
   public void visit(ASTClass cl){
     if (cl.kind == ASTClass.ClassKind.Abstract && cl.parameters != null && cl.parameters.length > 0) {
       for (DeclarationStatement clazz: cl.parameters) {
+        if (target().find(clazz.name()) == null)
         target().add(create.ast_class(clazz.name(), ASTClass.ClassKind.Abstract, null, null, null));
       }
     }
