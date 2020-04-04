@@ -108,18 +108,6 @@ public class MonomorphizeGenericClass extends AbstractRewriter {
             super.visit(c);
         }
 
-//        @Override
-//        public void visit(MethodInvokation e) {
-//            if (e.dispatch != null && e.dispatch.params()!= null && !e.dispatch.params().isEmpty()) {
-//                List<Type> typeParams = JavaConverters.seqAsJavaList(e.dispatch.params()).stream().map(t -> (Type) t).collect(Collectors.toList());
-//                Set<List<Type>> mappings = this.mappings.getOrDefault(e.dispatch, new HashSet<>());
-//                mappings.add(typeParams);
-//                this.mappings.put(e.dispatch, mappings);
-//            } else {
-//                super.visit(e);
-//            }
-//        }
-
         @Override
         public void visit(ClassType t) {
             if (t.params() != null && !t.params().isEmpty()) {

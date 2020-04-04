@@ -1,6 +1,8 @@
 package vct.col.rewrite;
 
+import scala.collection.JavaConverters;
 import vct.col.ast.expr.MethodInvokation;
+import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.decl.ASTClass;
 import vct.col.ast.stmt.decl.Method;
 import vct.col.ast.stmt.decl.ProgramUnit;
@@ -27,7 +29,6 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
         Map<Method, Map<ClassType, Type>> allTheFunctionsToGenerate = new HashMap<>();
 
         for (MethodInvokation mi: invokationsOfAbstractFunctions) {
-            int a = 1 + 2;
             List<AbstractMap.SimpleEntry<Type, Type>> tmp = IntStream.range(0, mi.getArgs().length)
                     .mapToObj(i -> new AbstractMap.SimpleEntry<>(mi.getDefinition().getArgType(i), mi.getArg(i).getType()))
                     .collect(Collectors.toList());
@@ -66,8 +67,20 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
     public void visit(MethodInvokation e) {
         if (e.getDefinition().typeParameters.length != 0) {
             invokationsOfAbstractFunctions.add(e);
+
+
+            StringBuilder generatedName = new StringBuilder(e.method);
+            if (e.getArgs() != null && e.getArgs().length > 0) {
+                for (ASTNode arg : e.getArgs()) {
+                    generatedName.append("_").append(arg.getType().toString());
+                }
+            }
+            generatedName.append("_").append(e.getType().toString());
+
+            result = create.invokation(rewrite(e.object), rewrite(e.dispatch), generatedName.toString(), e.getArgs());
+        } else {
+            super.visit(e);
         }
-        super.visit(e);
     }
 
     /**

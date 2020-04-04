@@ -2,6 +2,7 @@ package vct.col.rewrite;
 
 import vct.col.ast.expr.constant.StructValue;
 import vct.col.ast.generic.ASTNode;
+import vct.col.ast.stmt.decl.ASTClass;
 import vct.col.ast.type.ASTReserved;
 import vct.col.ast.stmt.decl.AxiomaticDataType;
 import vct.col.ast.stmt.composite.BlockStatement;
@@ -54,7 +55,7 @@ public class Standardize extends AbstractRewriter {
     if (object==null){
       if (e.method.equals(Method.JavaConstructor)){
         object=null;
-      } else if (current_class()!=null) {
+      } else if (current_class()!=null && current_class().kind != ASTClass.ClassKind.Abstract) {
         object=create.this_expression(create.class_type(current_class().getFullName()));
       }
     }

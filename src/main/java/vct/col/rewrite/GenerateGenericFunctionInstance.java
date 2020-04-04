@@ -29,11 +29,14 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
         this.m = m;
         this.mapping = mapping;
 
-        StringBuilder generated_name = new StringBuilder(m.getName());
-        for (DeclarationStatement typeParam: m.typeParameters) {
-            generated_name.append("_").append(mapping.get(new ClassType(typeParam.getDeclName().name)));
+        DeclarationStatement[] args = rewrite(m.getArgs());
+        Type returnType = rewrite(m.getReturnType());
 
+        StringBuilder generated_name = new StringBuilder(m.getName());
+        for (DeclarationStatement typeParam: args) {
+            generated_name.append("_").append(typeParam.getType().toString());
         }
+        generated_name.append("_").append(returnType.toString());
 
         Contract contract=m.getContract();
         if (currentContractBuilder==null){
@@ -44,7 +47,7 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
         }
 
 
-        Method res = new Method(m.kind, generated_name.toString(),rewrite(m.getReturnType()), currentContractBuilder.getContract(),rewrite(m.getArgs()),m.usesVarArgs(),rewrite(m.getBody()));
+        Method res = new Method(m.kind, generated_name.toString(), returnType, currentContractBuilder.getContract(),args,m.usesVarArgs(),rewrite(m.getBody()));
         res.setOrigin(m.getOrigin());
         return res;
     }
