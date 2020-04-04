@@ -377,13 +377,16 @@ public abstract class ASTFrame<T> {
       case ENTER:
         method_stack.push(node);
         if (node.typeParameters.length > 0) {
-          ASTClass current = class_stack.pop();
+          ASTClass current= null;
+          if (!class_stack.isEmpty()) {
+            current = class_stack.pop();
+          }
           for (DeclarationStatement typeParam: node.typeParameters) {
             ASTClass tmp = new ASTClass(typeParam.name(), ASTClass.ClassKind.Abstract);
             class_stack.push(tmp);
             genericMethodTypeParameters++;
           }
-          class_stack.push(current);
+          if (current != null) class_stack.push(current);
         }
 
         variables.enter();
@@ -397,7 +400,7 @@ public abstract class ASTFrame<T> {
         if (genericMethodTypeParameters > 0) {
           ASTClass current = class_stack.pop();
 
-          while (genericMethodTypeParameters > 0) {
+          while (genericMethodTypeParameters > 0 && !class_stack.isEmpty()) {
             class_stack.pop();
             genericMethodTypeParameters--;
           }
@@ -538,6 +541,10 @@ public abstract class ASTFrame<T> {
 
   public boolean searchInClassStack(String ct) {
     return new ArrayList<>(class_stack).stream().anyMatch(c -> c.getName().equals(ct));
+  }
+
+  public boolean searchInMethodStack(String mt) {
+    return new ArrayList<>(method_stack).stream().anyMatch(c -> c.getName().equals(mt));
   }
 
   private void recursively_add_class_info(ASTClass cl) {

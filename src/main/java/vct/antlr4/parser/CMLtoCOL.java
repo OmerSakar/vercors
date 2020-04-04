@@ -127,6 +127,7 @@ public class CMLtoCOL extends ANTLRtoCOL implements CMLVisitor<ASTNode> {
               ((Method) decl).getKind(),
               ((Method) decl).getName(),
               create.primitive_type(PrimitiveSort.Pointer, ((Method) decl).getReturnType()),
+              ((Method) decl).typeParameters,
               ((Method) decl).getContract(),
               ((Method) decl).getArgs(),
               ((Method) decl).usesVarArgs(),

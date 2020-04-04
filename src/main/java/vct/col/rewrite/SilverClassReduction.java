@@ -606,6 +606,12 @@ public class SilverClassReduction extends AbstractRewriter {
           create.reserved_name(ASTReserved.Result),
           create.reserved_name(ASTReserved.Null)));
     }
+    if (m.typeParameters != null) {
+      for (DeclarationStatement clazz: m.typeParameters) {
+        if (target().find(clazz.name()) == null)
+          target().add(create.ast_class(clazz.name(), ASTClass.ClassKind.Abstract, null, null, null));
+      }
+    }
     for(DeclarationStatement d:m.getArgs()){
       args.add(rewrite(d));
     }
@@ -663,8 +669,7 @@ public class SilverClassReduction extends AbstractRewriter {
       }   
     }
     c=cb.getContract();
-    result=create.method_kind(kind, rt, c, name, args, m.usesVarArgs(), body);
-
+    result=create.method_kind(kind, rt, rewrite(m.typeParameters), c, name, args, m.usesVarArgs(), body);
   }
   
   @Override

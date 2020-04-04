@@ -253,7 +253,7 @@ public class JavaEncoder extends AbstractRewriter {
             String external_name=create_method_name("method", cl_type ,m);
             String internal_name=create_method_name(INTERNAL, cl_type ,m);
             boolean varArgs=m.usesVarArgs();
-            res.add(create.method_kind(m.kind, returns, external_contract, external_name, parameters, varArgs, null));
+            res.add(create.method_kind(m.kind, returns, rewrite(m.typeParameters), external_contract, external_name, parameters, varArgs, null));
             BlockStatement body=create.block();
             body.add(create.comment("//TODO: unfolds of chained predicates in pre-condition"));
             body.add(create.invokation(
@@ -262,7 +262,7 @@ public class JavaEncoder extends AbstractRewriter {
                 create_method_name("internal", cl.super_classes[0],m),
                 get_names(parameters)));
             body.add(create.comment("//TODO: folds of chained predicates in post-condition"));
-            res.add(create.method_kind(m.kind, returns, internal_contract, internal_name, parameters, varArgs, body));
+            res.add(create.method_kind(m.kind, returns, rewrite(m.typeParameters), internal_contract, internal_name, parameters, varArgs, body));
             break;
           }
           case Predicate:{
@@ -429,26 +429,26 @@ public class JavaEncoder extends AbstractRewriter {
       case Plain:
         if (direct){
           ASTNode body=rewrite(m.getBody());
-          Method res=create.method_kind(kind, returns, external_contract, name, args, varArgs, body);
+          Method res=create.method_kind(kind, returns, rewrite(m.typeParameters),external_contract, name, args, varArgs, body);
           res.copyMissingFlags(m);
           currentTargetClass.add(res);         
         } else {
-          currentTargetClass.add(create.method_kind(kind, returns, initial_contract, name, args, varArgs, null));
+          currentTargetClass.add(create.method_kind(kind, returns, rewrite(m.typeParameters),initial_contract, name, args, varArgs, null));
           args=copy_rw.rewrite(args);
           internal_mode=true;
           ASTNode body=rewrite(m.getBody());
           internal_mode=false;
-          currentTargetClass.add(create.method_kind(kind, returns, internal_contract, internal_name, args, varArgs, body));
+          currentTargetClass.add(create.method_kind(kind, returns, rewrite(m.typeParameters),internal_contract, internal_name, args, varArgs, body));
         }
         break;
       case Predicate:
         if (direct){
           ASTNode body=rewrite(m.getBody());
-          Method res=create.method_kind(kind, returns, null, name, args, varArgs, body);
+          Method res=create.method_kind(kind, returns, rewrite(m.typeParameters),null, name, args, varArgs, body);
           res.copyMissingFlags(m);
           currentTargetClass.add(res);
         } else {
-          currentTargetClass.add(create.method_kind(kind, returns, null, name, args, varArgs, null));
+          currentTargetClass.add(create.method_kind(kind, returns, rewrite(m.typeParameters),null, name, args, varArgs, null));
           args=copy_rw.rewrite(args);
           internal_mode=true;
           ASTNode body=rewrite(m.getBody());
@@ -464,16 +464,16 @@ public class JavaEncoder extends AbstractRewriter {
             
             body=create.expression(StandardOperator.Star,override,body);
           }
-          currentTargetClass.add(create.method_kind(kind, returns, null, internal_name, args, varArgs, body));          
+          currentTargetClass.add(create.method_kind(kind, returns, rewrite(m.typeParameters),null, internal_name, args, varArgs, body));
         }
         break;
       default:{
         ASTNode body=rewrite(m.getBody());
-        result=create.method_kind(kind, returns, external_contract, name, args, varArgs, body);
+        result=create.method_kind(kind, returns, rewrite(m.typeParameters), external_contract, name, args, varArgs, body);
       }}
     } else {
       ASTNode body=rewrite(m.getBody());
-      result=create.method_kind(kind, returns, external_contract, name, args, varArgs, body);
+      result=create.method_kind(kind, returns, rewrite(m.typeParameters),external_contract, name, args, varArgs, body);
     }
   }
   

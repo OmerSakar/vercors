@@ -704,9 +704,10 @@ public BlockStatement block(Origin origin, ASTNode ... args) {
   public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,DeclarationStatement args[],ASTNode body){
     return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,false,body);
   }
-  /**
-   * Create a method declaration
-   */
+
+    /**
+     * Create a method declaration
+     */
   public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){
     return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
   }
@@ -715,8 +716,13 @@ public BlockStatement block(Origin origin, ASTNode ... args) {
     return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,varArgs,body);
   }
 
-    public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameter,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    Method res=new Method(kind,name,returns,typeParameter,contract,args,varArgs,body);
+  public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameters,Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){
+    return method_kind(kind,returns,typeParameters,contract,name,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
+  }
+
+
+    public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameters,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body){
+    Method res=new Method(kind,name,returns,typeParameters,contract,args,varArgs,body);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);
     return res;

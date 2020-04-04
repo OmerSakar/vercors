@@ -213,6 +213,7 @@ public class RecursiveVisitor<T> extends ASTFrame<T> implements ASTVisitor<T> {
 //      dispatch(c.pre_condition);
 //      dispatch(c.post_condition);
 //    }
+    dispatch(m.typeParameters);
     Contract c=m.getContract();
     if (c!=null){
       dispatch(c.given);

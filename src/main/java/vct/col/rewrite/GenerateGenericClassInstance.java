@@ -25,18 +25,13 @@ public class GenerateGenericClassInstance extends AbstractRewriter {
 
     public GenerateGenericClassInstance() {
         super(null, null);
-//        if (c.parameters.length != mapping.size()) {
-//            //TODO a better error message with origin
-//            Fail("The types in the method invokation or constructor does not match the generic type.");
-//        }
-//        this.mapping = mapping;
     }
 
     public ASTClass rewrite(ASTClass c, List<Type> mapping) {
         this.c = c;
         this.mapping = mapping;
 
-        if (c.parameters.length != mapping.size()) {
+        if (c == null || c.parameters == null || c.parameters.length != mapping.size()) {
             //TODO a better error message with origin
             Fail("The types in the method invokation or constructor does not match the generic type.");
         }

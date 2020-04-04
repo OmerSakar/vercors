@@ -13,7 +13,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.stream.Collectors;
 
 import hre.ast.FileOrigin;
 import hre.config.*;
@@ -370,7 +369,7 @@ public class Main
 
         passes.add("standardize");
         passes.add("java-check"); // marking function: stub
-
+        passes.add("flatten_generic_functions");
         if(features.usesOperator(StandardOperator.AddrOf)) {
           passes.add("lift_declarations");
         }
@@ -1061,6 +1060,11 @@ public class Main
     defined_passes.put("flatten_generic_classes",new CompilerPass("Monomorphize generic classes."){
       public ProgramUnit apply(ProgramUnit arg,String ... args){
         return new MonomorphizeGenericClass(arg).rewriteAll();
+      }
+    });
+    defined_passes.put("flatten_generic_functions",new CompilerPass("Monomorphize generic functions."){
+      public ProgramUnit apply(ProgramUnit arg,String ... args){
+        return new MonomorphizeGenericFunctions(arg).rewriteAll();
       }
     });
     defined_passes.put("rm_cons",new CompilerPass("???"){

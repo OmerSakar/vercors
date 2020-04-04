@@ -103,7 +103,7 @@ public class Method extends ASTDeclaration {
     }
     this.body=body;
     this.kind=kind;
-    this.typeParameters = typeParameters;
+    this.typeParameters = Arrays.copyOf(typeParameters,typeParameters.length);
     setContract(contract);
   }
 

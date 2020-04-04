@@ -2,6 +2,7 @@ package vct.col.util;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import scala.collection.JavaConverters;
 import vct.col.ast.expr.NameExpression.Kind;
@@ -15,12 +16,11 @@ import vct.col.ast.stmt.terminal.AssignmentStatement;
 import vct.col.ast.stmt.terminal.ReturnStatement;
 import vct.col.ast.type.*;
 import vct.col.ast.util.RecursiveVisitor;
-import vct.col.rewrite.InferADTTypes;
-import vct.col.rewrite.MonomorphizeGenericClass;
-import vct.col.rewrite.MultiSubstitution;
-import vct.col.rewrite.TypeVarSubstitution;
+import vct.col.rewrite.*;
 import vct.silver.SilverTypeMap;
 import vct.util.Configuration;
+
+import static vct.col.ast.type.ASTReserved.This;
 
 /**
  * This class implements type checking of simple object oriented programs.
@@ -87,6 +87,11 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
       t.setType(t);
       return;
     }
+    if (current_method() != null && Arrays.stream(current_method().typeParameters).anyMatch(ds -> ds.getType().isName(t.getFullName()))) {
+      t.setType(t);
+      return;
+    }
+
     ASTDeclaration decl=source().find_decl(t.getNameFull());
     if (decl==null){
       decl=source().find(t.getNameFull());
@@ -177,6 +182,36 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
         cl=source().find(cl.super_classes[0].getNameFull());
         m=cl.find(e.method,object_type,type);
       }
+      if (m==null && e.object!=null) {
+        //Check if the function isnt an abstract function
+        ClassType clazzType = (ClassType) e.object.getType();
+        ASTClass clazz=source().find(object_type.getNameFull());
+
+        List<Method> possibleMethods = clazz.find_abstract_method(e);
+
+        outerloop:
+        for (Method m1: possibleMethods) {
+          List<AbstractMap.SimpleEntry<Type, Type>> tmp = IntStream.range(0, m1.getArgs().length)
+                  .mapToObj(i -> new AbstractMap.SimpleEntry<>(m1.getArgType(i), e.getArg(i).getType()))
+                  .collect(Collectors.toList());
+
+          Map<ClassType, Type> mapping = new HashMap<>();
+          List<TypeVariable> typeParams = Arrays.stream(m1.typeParameters).map(d -> (TypeVariable) d.getType()).collect(Collectors.toList());
+          for (AbstractMap.SimpleEntry<Type, Type> tt: tmp) {
+            Map<ClassType, Type> mappingForArg = MonomorphizeGenericFunctions.matchUpToTypeParameters(tt.getKey(), tt.getValue(), typeParams);
+
+            if (mappingForArg == null || mappingForArg.isEmpty() || mappingForArg.keySet().stream().anyMatch(mapping::containsKey)){
+              continue outerloop;
+            }
+            mapping.putAll(mappingForArg);
+          }
+//          for all typeParams, there is a mapping
+          if (typeParams.stream().allMatch(tp -> mapping.keySet().stream().anyMatch(k -> k.getName().equals(tp.name())))) {
+            m = m1;
+            break;
+          }
+      }
+        }
       if (m==null) {
         /*
         String parts[]=e.method.split("_");
@@ -271,25 +306,26 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
      * Hence, we recursively force fractional arguments to be of
      * type fraction....
      */
-    for(int i=0;i<N;i++){
-      Type ti=m.getArgType(i);
-      ASTNode arg=e.getArg(i);
-      if (!ti.supertypeof(source(), arg.getType())){
-        if (ti.isPrimitive(PrimitiveSort.Location)
-          && (arg instanceof Dereference)
-          && ((Type)ti.firstarg()).supertypeof(source(), arg.getType())
-        ){
-          // OK
-        } else {
-          Fail("argument type %d incompatible %s/%s:%s",i,ti,arg,arg.getType());
+    if (m.typeParameters.length == 0) {
+      for (int i = 0; i < N; i++) {
+        Type ti = m.getArgType(i);
+        ASTNode arg = e.getArg(i);
+        if (!ti.supertypeof(source(), arg.getType())) {
+          if (ti.isPrimitive(PrimitiveSort.Location)
+                  && (arg instanceof Dereference)
+                  && ((Type) ti.firstarg()).supertypeof(source(), arg.getType())
+          ) {
+            // OK
+          } else {
+            Fail("argument type %d incompatible %s/%s:%s", i, ti, arg, arg.getType());
+          }
+        }
+        if (ti.isPrimitive(PrimitiveSort.Fraction) ||
+                ti.isPrimitive(PrimitiveSort.ZFraction)) {
+          force_frac(arg);
         }
       }
-      if (ti.isPrimitive(PrimitiveSort.Fraction)||
-          ti.isPrimitive(PrimitiveSort.ZFraction)){
-        force_frac(arg);
-      }
     }
-
     /*
     //m=source().find_procedure(e.method);
     if (m!=null){
@@ -448,6 +484,16 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
 
     if(loc_type.isPrimitive(PrimitiveSort.Option)) {
       val.setType(loc_type);
+    }
+
+    if (val instanceof MethodInvokation) {
+      Method m = ((MethodInvokation) val).getDefinition();
+      if (m.typeParameters.length != 0) {
+        //TODO figure out what the best action here is.
+        // Is it to just leave it as is or is it better to state that this method has the type of the location (i.e. somewhat assuming its correct because it should then fail elsewhere).
+        val.setType(loc_type);
+        return;
+      }
     }
 
     if (!(loc_type.equals(val_type)

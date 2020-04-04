@@ -8,7 +8,9 @@ import hre.util.Function;
 import java.util.*;
 
 import scala.collection.JavaConverters;
+import vct.col.ast.expr.MethodInvokation;
 import vct.col.ast.stmt.decl.Method.Kind;
+import vct.col.ast.type.TypeVariable;
 import vct.col.util.ASTMapping;
 import vct.col.util.ASTMapping1;
 import vct.col.ast.generic.ASTNode;
@@ -268,7 +270,18 @@ public class ASTClass extends ASTDeclaration implements ASTSequence<ASTClass> {
   public ASTClass find(String[] name){
     return find(name,0);
   }
-  
+
+  public List<Method> find_abstract_method(MethodInvokation m) {
+    List<Method> result = new ArrayList<>();
+    for(Method classMethod:dynamicMethods()){
+      if (classMethod.typeParameters.length != 0 && classMethod.name().equals(m.method) && classMethod.getArgs().length == m.getArgs().length) {
+        // If the conditions hold, we should have an abstract function with the same name and arguments.
+        result.add(classMethod);
+      }
+    }
+    return result;
+  }
+
   /** 
    * Auxiliary function for class lookup.
    */

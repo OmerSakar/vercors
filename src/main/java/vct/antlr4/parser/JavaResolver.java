@@ -4,8 +4,10 @@ import java.io.File;
 import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.stream.Collectors;
 
 import hre.ast.FileOrigin;
 import hre.ast.MessageOrigin;
@@ -28,11 +30,11 @@ import vct.util.ClassName;
 public class JavaResolver extends AbstractRewriter {
 
   private ClassLoader path=this.getClass().getClassLoader();
-  
+
   public JavaResolver(ProgramUnit source) {
     super(source);
   }
-  
+
   private boolean ensures_loaded(String ... name){
     {
       ASTDeclaration decl=source().find_decl(name);
@@ -52,6 +54,9 @@ public class JavaResolver extends AbstractRewriter {
     }
     if(tryFileBase(new File("."),name)){
       return true;
+    }
+    if (searchInClassStack(Arrays.stream(name).collect(Collectors.joining(".")))) {
+        return true;
     }
     try {
       ClassName cln=new ClassName(name);
@@ -154,31 +159,31 @@ public class JavaResolver extends AbstractRewriter {
     Type returns=null;
     if (c.isPrimitive()){
       switch(c.toString()){
-      case "void":   
+      case "void":
         returns=create.primitive_type(PrimitiveSort.Void);
         break;
-      case "boolean":   
+      case "boolean":
         returns=create.primitive_type(PrimitiveSort.Boolean);
         break;
-      case "byte":   
+      case "byte":
         returns=create.primitive_type(PrimitiveSort.Byte);
         break;
-      case "char":   
+      case "char":
         returns=create.primitive_type(PrimitiveSort.Char);
         break;
-      case "double":   
+      case "double":
         returns=create.primitive_type(PrimitiveSort.Double);
         break;
-      case "float":   
+      case "float":
         returns=create.primitive_type(PrimitiveSort.Float);
         break;
-      case "int":   
+      case "int":
         returns=create.primitive_type(PrimitiveSort.Integer);
         break;
-      case "long":   
+      case "long":
         returns=create.primitive_type(PrimitiveSort.Long);
         break;
-      case "short":   
+      case "short":
         returns=create.primitive_type(PrimitiveSort.Short);
         break;
       }
@@ -200,7 +205,7 @@ public class JavaResolver extends AbstractRewriter {
     }
     return returns;
   }
-  
+
   private String[] full_name(String ... name){
     if (ensures_loaded(name)){
       return name;
@@ -226,14 +231,14 @@ public class JavaResolver extends AbstractRewriter {
           if (name.length==1 && name[0].equals(imp_name)) {
             if (ensures_loaded(imp.name)){
               return imp.name;
-            }            
+            }
           }
         }
       }
     }
     return null;
   }
-  
+
   @Override
   public void visit(ClassType t){
     String name[]=t.getNameFull();
@@ -265,23 +270,25 @@ public class JavaResolver extends AbstractRewriter {
             if (ensures_loaded(imp.name)){
               result=create.class_type(ClassName.toString(imp.name,FQN_SEP),rewrite(t.argsJava()));
               return;
-            }            
+            }
           }
         }
       }
     } else if (!searchInClassStack(t.getFullName())) {
-      Fail("cannot resolve %s",new ClassName(name));
+      result = create.class_type(t.getFullName(),rewrite(t.argsJava()));
+    } else {
+        Fail("cannot resolve %s",new ClassName(name));
     }
   }
-  
+
   public static final String FQN_SEP="_DOT_";
-  
+
   private NameSpace current_space=null;
-  
+
   private String prefix="";
-  
+
   private Path base_path=null;
-  
+
   @Override
   public void visit(NameSpace ns){
     Origin o=ns.getOrigin();
@@ -358,9 +365,9 @@ public class JavaResolver extends AbstractRewriter {
 
     super.visit(m);
   }
-  
+
   private Queue<ASTDeclaration> queue=new LinkedList<ASTDeclaration>();
-  
+
   @Override
   public ProgramUnit rewriteAll(){
     for(ASTDeclaration n:source().get()){
