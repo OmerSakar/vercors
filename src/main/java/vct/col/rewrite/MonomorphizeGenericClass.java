@@ -63,7 +63,7 @@ public class MonomorphizeGenericClass extends AbstractRewriter {
 
     @Override
     public void visit(ClassType t) {
-        if (t.params() != null && !t.params().isEmpty()) {
+        if (t.params() != null && !t.params().isEmpty() && source().find(t.getFullName()) != null && source().find(t.getFullName()).kind == ASTClass.ClassKind.Abstract) {
             StringBuilder generatedName = new StringBuilder(t.getName());
 
             for (ASTNode type : JavaConverters.seqAsJavaList(t.params())) {
