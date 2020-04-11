@@ -353,7 +353,10 @@ public class Main
         passes.add("dafny"); // run backend
       } else if (silver.used()||chalice.get()) {
         passes=new LinkedBlockingDeque<String>();
-        passes.add("flatten_generic_classes");
+
+        if (features.usesGenericClass()) {
+          passes.add("flatten_generic_classes");
+        }
         passes.add("java_resolve");
 
         if (silver.used() &&
@@ -369,7 +372,9 @@ public class Main
 
         passes.add("standardize");
         passes.add("java-check"); // marking function: stub
-        passes.add("flatten_generic_functions");
+        if (features.usesGenericFunction()) {
+          passes.add("flatten_generic_functions");
+        }
         if(features.usesOperator(StandardOperator.AddrOf)) {
           passes.add("lift_declarations");
         }

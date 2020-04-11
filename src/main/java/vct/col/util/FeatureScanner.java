@@ -36,6 +36,8 @@ public class FeatureScanner extends RecursiveVisitor<Object> {
   private boolean has_processes=false;
   private boolean has_inheritance=false;
   private boolean has_kernels=false;
+  private boolean has_generics_classes =false;
+  private boolean has_generics_functions =false;
   private boolean has_iteration_contracts=false;
   private boolean uses_csl=false;
   private EnumSet<StandardOperator> ops_used=EnumSet.noneOf(StandardOperator.class);
@@ -86,7 +88,15 @@ public class FeatureScanner extends RecursiveVisitor<Object> {
   public boolean hasDynamicItems(){
     return has_dynamics;
   }
-  
+
+  public boolean usesGenericClass(){
+    return has_generics_classes;
+  }
+
+  public boolean usesGenericFunction(){
+    return has_generics_functions;
+  }
+
   public boolean usesInheritance(){
     return has_inheritance;
   }
@@ -125,6 +135,7 @@ public class FeatureScanner extends RecursiveVisitor<Object> {
   @Override
   public void visit(Method m){
     uses_csl = uses_csl || m.name().equals("csl_invariant");
+    has_generics_functions = has_generics_functions || (m.typeParameters != null && m.typeParameters.length > 0);
     super.visit(m);
   }
   @Override
@@ -143,6 +154,9 @@ public class FeatureScanner extends RecursiveVisitor<Object> {
       Warning("detected inheritance");
       has_inheritance=true;
     }
+
+    has_generics_classes = has_generics_classes || (c.parameters != null && c.parameters.length > 0);
+
     int N=c.getStaticCount();
     for(int i=0;i<N;i++){
       ASTNode node=c.getStatic(i);
