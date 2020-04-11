@@ -273,8 +273,8 @@ public class ASTClass extends ASTDeclaration implements ASTSequence<ASTClass> {
 
   public List<Method> find_abstract_method(MethodInvokation m) {
     List<Method> result = new ArrayList<>();
-    for(Method classMethod:dynamicMethods()){
-      if (classMethod.typeParameters.length != 0 && classMethod.name().equals(m.method) && classMethod.getArgs().length == m.getArgs().length) {
+    for(Method classMethod:methods()){
+      if (classMethod.typeParameters != null && classMethod.typeParameters.length != 0 && classMethod.name().equals(m.method) && classMethod.getArgs().length == m.getArgs().length) {
         // If the conditions hold, we should have an abstract function with the same name and arguments.
         result.add(classMethod);
       }
