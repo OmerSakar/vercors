@@ -1,20 +1,13 @@
 package vct.col.rewrite;
 
-import vct.col.ast.generic.ASTNode;
-import vct.col.ast.stmt.decl.ASTClass;
 import vct.col.ast.stmt.decl.Contract;
 import vct.col.ast.stmt.decl.DeclarationStatement;
 import vct.col.ast.stmt.decl.Method;
 import vct.col.ast.type.ClassType;
 import vct.col.ast.type.Type;
-import vct.col.ast.type.TypeVariable;
 import vct.col.ast.util.ContractBuilder;
-import viper.silver.ast.Declaration;
 
-import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
-import java.util.stream.IntStream;
 
 public class GenerateGenericFunctionInstance extends AbstractRewriter {
 
@@ -24,6 +17,12 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
     public GenerateGenericFunctionInstance() {
         super(null, null);
     }
+
+    public Type rewrite(Type t, Map<ClassType, Type> mapping) {
+        this.mapping = mapping;
+        return rewrite(t);
+    }
+
 
     public Method rewrite(Method m, Map<ClassType, Type> mapping) {
         this.m = m;
@@ -46,8 +45,8 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
             rewrite(contract,currentContractBuilder);
         }
 
-
         Method res = new Method(m.kind, generated_name.toString(), returnType, currentContractBuilder.getContract(),args,m.usesVarArgs(),rewrite(m.getBody()));
+        res.copyMissingFlags(m);
         res.setOrigin(m.getOrigin());
         return res;
     }
@@ -62,6 +61,5 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
     public void visit(ClassType t) {
         result = mapping.get(t);
     }
-
 
 }

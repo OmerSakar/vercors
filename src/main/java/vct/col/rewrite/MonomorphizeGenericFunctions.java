@@ -1,6 +1,5 @@
 package vct.col.rewrite;
 
-import scala.collection.JavaConverters;
 import vct.col.ast.expr.MethodInvokation;
 import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.decl.ASTClass;
@@ -37,7 +36,9 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
             List<TypeVariable> typeParams = Arrays.stream(mi.getDefinition().typeParameters).map(d -> (TypeVariable) d.getType()).collect(Collectors.toList());
             for (AbstractMap.SimpleEntry<Type, Type> tt: tmp) {
                 Map<ClassType, Type> mappingForArg = MonomorphizeGenericFunctions.matchUpToTypeParameters(tt.getKey(), tt.getValue(), typeParams);
-                //TODO check if mappingForArg is not null and
+                if (mappingForArg == null) {
+                    Fail("Type parameter bound to two different types.");
+                }
                 mapping.putAll(mappingForArg);
             }
             allTheFunctionsToGenerate.put(mi.getDefinition(), mapping);
@@ -59,15 +60,9 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
     }
 
     @Override
-    public void visit(Method m) {
-        super.visit(m);
-    }
-
-    @Override
     public void visit(MethodInvokation e) {
         if (e.getDefinition().typeParameters.length != 0) {
             invokationsOfAbstractFunctions.add(e);
-
 
             StringBuilder generatedName = new StringBuilder(e.method);
             if (e.getArgs() != null && e.getArgs().length > 0) {
@@ -99,20 +94,34 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
             ClassType tt1 = (ClassType) t1;
             ClassType tt2 = (ClassType) t2;
 
+            if (tt1.getFullName().equals(tt2.getFullName()) &&
+                    tt1.params() != null && tt2.params() != null &&
+                    tt1.params().length() == tt2.params().length()
+            ) {
+                for (int i = 0; i < tt1.params().length(); i++) {
+                    Map<ClassType, Type> tmpMap = matchUpToTypeParameters((Type) tt1.params().apply(i), (Type) tt2.params().apply(i), typeParameters);
+                    if (tmpMap == null || tmpMap.keySet().stream().anyMatch(mapping::containsKey)) {
+                        return tmpMap;
+                    }
+                    mapping.putAll(tmpMap);
+                }
+            } else {
+                return null;
+            }
         } else if (t1 instanceof PrimitiveType && t2 instanceof PrimitiveType) {
             PrimitiveType tt1 = (PrimitiveType) t1;
             PrimitiveType tt2 = (PrimitiveType) t2;
             if (tt1.sort == tt2.sort && tt1.args().length() == tt2.args().length()) {
                 for (int i = 0; i < tt1.args().size(); i++) {
-                    Map<ClassType, Type> tmpMap = matchUpToTypeParameters(tt1.argsJava().get(i).getType(), tt2.argsJava().get(i).getType(), typeParameters);
-                    if (tmpMap.keySet().stream().anyMatch(mapping::containsKey)){
-                        // Not mergeble
-                        return null;
+                    Map<ClassType, Type> tmpMap = matchUpToTypeParameters((Type) tt1.argsJava().get(i), (Type) tt2.argsJava().get(i), typeParameters);
+                    if (tmpMap == null || tmpMap.keySet().stream().anyMatch(mapping::containsKey)) {
+                        // tmpMap == null or Conflicting mappings.
+                        return tmpMap;
                     }
                     mapping.putAll(tmpMap);
                 }
             } else {
-                // Fail
+                // Primitive types do not match
                 return null;
             }
         }

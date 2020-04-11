@@ -188,7 +188,6 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
         ASTClass clazz=source().find(object_type.getNameFull());
 
         List<Method> possibleMethods = clazz.find_abstract_method(e);
-
         outerloop:
         for (Method m1: possibleMethods) {
           List<AbstractMap.SimpleEntry<Type, Type>> tmp = IntStream.range(0, m1.getArgs().length)
@@ -200,14 +199,18 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
           for (AbstractMap.SimpleEntry<Type, Type> tt: tmp) {
             Map<ClassType, Type> mappingForArg = MonomorphizeGenericFunctions.matchUpToTypeParameters(tt.getKey(), tt.getValue(), typeParams);
 
-            if (mappingForArg == null || mappingForArg.isEmpty() || mappingForArg.keySet().stream().anyMatch(mapping::containsKey)){
+            if (mappingForArg == null || mappingForArg.keySet().stream().anyMatch(mapping::containsKey)){
               continue outerloop;
             }
             mapping.putAll(mappingForArg);
           }
 //          for all typeParams, there is a mapping
           if (typeParams.stream().allMatch(tp -> mapping.keySet().stream().anyMatch(k -> k.getName().equals(tp.name())))) {
-            m = m1;
+            Type returnType = new GenerateGenericFunctionInstance().rewrite(m1.getReturnType(), mapping);
+            m = new Method(m1.kind, m1.getName(), returnType, m1.typeParameters, m1.getContract(),m1.getArgs(),m1.usesVarArgs(),m1.getBody());
+            m.copyMissingFlags(m1);
+            m.setParent(m1.getParent());
+
             break;
           }
       }
@@ -489,8 +492,6 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
     if (val instanceof MethodInvokation) {
       Method m = ((MethodInvokation) val).getDefinition();
       if (m.typeParameters.length != 0) {
-        //TODO figure out what the best action here is.
-        // Is it to just leave it as is or is it better to state that this method has the type of the location (i.e. somewhat assuming its correct because it should then fail elsewhere).
         val.setType(loc_type);
         return;
       }
