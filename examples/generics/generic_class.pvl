@@ -1,0 +1,38 @@
+// -*- tab-width:2 ; indent-tabs-mode:nil -*-
+//:: case GenericClassesAndFunctions
+//:: tool silicon
+//:: verdict Pass
+
+class MyAbstractClass<L,R> {
+	int myField1;
+	L myField2;
+	R myField3;
+
+	requires Perm(myField2, write);
+	pure L getL() = myField2;
+
+}
+
+class NormalClass {
+    requires 0 <= i && i <= |xs|;
+    ensures (0 < i) ==> (\result == seq<R> {head(xs)} + take(tail(xs),i-1));
+    ensures !(0 < i) ==> (\result == seq<R>{});
+    pure static <R> seq<R> take(seq<R> xs, int i) = 0 < i ? seq<R> {head(xs)} + take(tail(xs),i-1) : seq<R>{};
+
+
+    requires 0 <= n && n <= |xs|;
+    ensures (0 < n) ==> (\result == seq<int> { head(xs) } + Take(tail(xs), n - 1));
+    ensures !(0 < n) ==> (\result == seq<int> {});
+	static pure seq<int> Take(seq<int> xs, int n) = 0 < n ? seq<int> { head(xs) } + Take(tail(xs), n - 1) : seq<int> { };
+
+	void main() {
+		MyAbstractClass<boolean,int> mac2 = new MyAbstractClass<boolean,int>();
+		mac2.myField2 = true;
+		boolean LofMac2 = mac2.getL();
+		assert mac2.getL();
+
+		seq<int> xs = seq<int> {1, 2, 3, 4, 5, 6};
+		int i = 2;
+		assert NormalClass.take(xs, i) == NormalClass.Take(xs, i);
+	}
+}
