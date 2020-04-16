@@ -492,7 +492,7 @@ public class AbstractRewriter extends AbstractVisitor<ASTNode> {
     currentContractBuilder=null;
     ASTNode body=rewrite(m.getBody());
 //    DeclarationStatement[] typeParams = rewrite(m.typeParameters);
-    result=create.method_kind(kind, rt, m.typeParameters, c, name, args, m.usesVarArgs(), body);
+    result=create.method_kind(kind, rt, rewrite(m.typeParameters), c, name, args, m.usesVarArgs(), body);
   }
 
   @Override

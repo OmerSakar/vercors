@@ -1,5 +1,7 @@
 package vct.col.rewrite;
 
+import vct.col.ast.expr.MethodInvokation;
+import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.decl.Contract;
 import vct.col.ast.stmt.decl.DeclarationStatement;
 import vct.col.ast.stmt.decl.Method;
@@ -45,7 +47,7 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
             rewrite(contract,currentContractBuilder);
         }
 
-        Method res = new Method(m.kind, generated_name.toString(), returnType, currentContractBuilder.getContract(),args,m.usesVarArgs(),rewrite(m.getBody()));
+        Method res = new Method(m.kind, generated_name.toString(), returnType, new DeclarationStatement[0], currentContractBuilder.getContract(),args,m.usesVarArgs(),rewrite(m.getBody()));
         res.copyMissingFlags(m);
         res.setOrigin(m.getOrigin());
         return res;
@@ -55,6 +57,25 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
     public void visit(DeclarationStatement s) {
         DeclarationStatement res=new DeclarationStatement(s.name(),rewrite(s.getType()),s.initJava());
         result = res;
+    }
+
+
+    @Override
+    public void visit(MethodInvokation e) {
+        if (m.getName().equals(e.method)) {
+
+            StringBuilder generatedName = new StringBuilder(e.method);
+            if (e.getArgs() != null && e.getArgs().length > 0) {
+                for (ASTNode arg : e.getArgs()) {
+                    generatedName.append("_").append(rewrite(arg.getType()).toString());
+                }
+            }
+            generatedName.append("_").append(rewrite(e.getType()).toString());
+
+            result = create.invokation(rewrite(e.object), rewrite(e.dispatch), generatedName.toString(), rewrite(e.getArgs()));
+        } else {
+            super.visit(e);
+        }
     }
 
     @Override

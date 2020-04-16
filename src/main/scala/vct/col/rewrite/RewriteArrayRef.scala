@@ -5,7 +5,7 @@ import vct.col.ast.`type`.{ASTReserved, PrimitiveSort, PrimitiveType, Type}
 import vct.col.ast.expr.constant.StructValue
 import vct.col.ast.expr.{Binder, BindingExpression, Dereference, OperatorExpression, StandardOperator}
 import vct.col.ast.generic.ASTNode
-import vct.col.ast.stmt.decl.{DeclarationStatement, Method, ProgramUnit}
+import vct.col.ast.stmt.decl.{ASTClass, DeclarationStatement, Method, ProgramUnit}
 import vct.col.ast.util.ContractBuilder
 import vct.col.util.SequenceUtils
 import vct.col.util.SequenceUtils.SequenceInfo
@@ -173,6 +173,27 @@ class RewriteArrayRef(source: ProgramUnit) extends AbstractRewriter(source) {
   override def visit(struct_value: StructValue): Unit = {
     RewriteArrayRef.getArrayConstructor(struct_value.getType, 1)
     super.visit(struct_value)
+  }
+
+
+  override def visit(c: ASTClass): Unit = {
+    if (c.kind == ASTClass.ClassKind.Abstract && c.parameters != null && !c.parameters.isEmpty) {
+      if (c.getOrigin != null) c.clearOrigin()
+      result = c
+    } else {
+      super.visit(c)
+    }
+  }
+
+
+  override def visit(m: Method): Unit = {
+    if (m.typeParameters != null && !m.typeParameters.isEmpty) {
+      if (m.getOrigin != null) m.clearOrigin()
+      m.clearParent()
+      result = m
+    } else {
+      super.visit(m)
+    }
   }
 
   def quantify(dimension: Int, claim: ASTNode): ASTNode = {

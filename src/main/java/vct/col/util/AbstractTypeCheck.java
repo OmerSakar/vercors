@@ -213,8 +213,8 @@ public class AbstractTypeCheck extends RecursiveVisitor<Type> {
 
             break;
           }
-      }
         }
+      }
       if (m==null) {
         /*
         String parts[]=e.method.split("_");

@@ -41,8 +41,9 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
                 }
                 mapping.putAll(mappingForArg);
             }
-            allTheFunctionsToGenerate.put(mi.getDefinition(), mapping);
-
+            if(!mapping.entrySet().stream().allMatch(e -> e.getKey().equals(e.getValue()))) {
+                allTheFunctionsToGenerate.put(mi.getDefinition(), mapping);
+            }
         }
 
         allTheFunctionsToGenerate.forEach((k,v) -> res.find(((ASTClass) k.getParent()).getName()).add(new GenerateGenericFunctionInstance().rewrite(k, v)));
@@ -58,6 +59,17 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
             result = c;
         }
     }
+
+    @Override
+    public void visit(Method m) {
+        if (m.typeParameters != null && m.typeParameters.length == 0) {
+            super.visit(m);
+        } else {
+            result = m;
+            result.clearParent();
+        }
+    }
+
 
     @Override
     public void visit(MethodInvokation e) {
