@@ -7,6 +7,7 @@ import vct.col.ast.stmt.decl.DeclarationStatement;
 import vct.col.ast.stmt.decl.Method;
 import vct.col.ast.type.ClassType;
 import vct.col.ast.type.Type;
+import vct.col.ast.util.AbstractRewriter;
 import vct.col.ast.util.ContractBuilder;
 
 import java.util.Map;
@@ -47,7 +48,7 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
             rewrite(contract,currentContractBuilder);
         }
 
-        Method res = new Method(m.kind, generated_name.toString(), returnType, new DeclarationStatement[0], currentContractBuilder.getContract(),args,m.usesVarArgs(),rewrite(m.getBody()));
+        Method res = new Method(m.kind, generated_name.toString(), returnType, currentContractBuilder.getContract(),args,m.usesVarArgs(),rewrite(m.getBody()));
         res.copyMissingFlags(m);
         res.setOrigin(m.getOrigin());
         return res;

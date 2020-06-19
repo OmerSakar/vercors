@@ -659,37 +659,28 @@ public class ASTFactory<E> implements FrameControl {
   public Method method_decl(Type returns,Contract contract,String name,List<DeclarationStatement> args,ASTNode body){
     return method_kind(Method.Kind.Plain,returns,new DeclarationStatement[0],contract,name,args.toArray(new DeclarationStatement[args.size()]),false,body);
   }
-  
-  /**
-   * Create a method declaration
-   */
+
+  public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameters,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body){
+    Method res=new Method(kind,name,returns,new Type[0], typeParameters,contract,args,varArgs,body);
+    res.setOrigin(origin_stack.get());
+    res.accept_if(post);
+    return res;
+  }
+
   public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,DeclarationStatement args[],ASTNode body){
     return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,false,body);
   }
 
-    /**
-     * Create a method declaration
-     */
   public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){
     return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
-  }
-
-  public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body) {
-    return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,varArgs,body);
   }
 
   public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameters,Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){
     return method_kind(kind,returns,typeParameters,contract,name,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
   }
 
-
-    public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameters,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    Method res=new Method(kind,name,returns,typeParameters,contract,args,varArgs,body);
-  public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    Method res=new Method(kind,name,returns,new Type[0],contract,args,varArgs,body);
-    res.setOrigin(origin_stack.get());
-    res.accept_if(post);
-    return res;
+  public Method method_kind(Method.Kind kind,Type returns,Contract contract, String name,DeclarationStatement args[],boolean varArgs,ASTNode body) {
+    return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,varArgs,body);
   }
 
   /**

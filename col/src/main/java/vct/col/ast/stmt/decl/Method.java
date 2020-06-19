@@ -3,6 +3,7 @@ package vct.col.ast.stmt.decl;
 
 import java.util.*;
 
+import hre.ast.MessageOrigin;
 import scala.collection.Iterable;
 import scala.collection.JavaConverters;
 import vct.col.ast.expr.*;
@@ -62,26 +63,29 @@ public class Method extends ASTDeclaration {
   public boolean usesVarArgs(){
     return var_args;
   }
-  
-  public Method(String name,Type return_type,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    this(Kind.Plain,name,return_type,new DeclarationStatement[0],contract,args,varArgs,body);
-  }
-
-  public Method(Kind kind, String name, Type return_type,Contract contract,DeclarationStatement args[],ASTNode body) {
-    this(kind,name,return_type,new DeclarationStatement[0],contract,args,false,body);
-  public Method(String name,Type return_type,Type[] throwy,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    this(Kind.Plain,name,return_type,throwy,contract,args,varArgs,body);
-  }
 
   public Method(Kind kind,
                 String name,
                 Type return_type,
                 Type[] throwy,
+                DeclarationStatement[] typeParameters,
                 Contract contract,
-                DeclarationStatement[] args,
+                DeclarationStatement args[],
                 boolean varArgs,
-                ASTNode body)
-  {
+                ASTNode body){
+    super(name);
+    this.return_type=return_type;
+    this.args=Arrays.copyOf(args,args.length);
+    this.throwy = throwy;
+    this.var_args=varArgs;
+    for(int i=0;i<args.length;i++){
+      if (this.args[i].getParent()==null) this.args[i].setParent(this);
+    }
+    this.body=body;
+    this.kind=kind;
+    this.typeParameters = Arrays.copyOf(typeParameters,typeParameters.length);
+    setContract(contract);
+  }
 
   public Method(Kind kind, String name, String args[], boolean many, FunctionType t) {
     super(name);
@@ -97,26 +101,28 @@ public class Method extends ASTDeclaration {
       i++;
     }
     this.typeParameters = new DeclarationStatement[0];
+    this.throwy = new Type[0];
     this.kind=kind;
   }
+
+  public Method(String name,Type return_type,Type[] throwy,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
+    this(Kind.Plain,name,return_type,throwy,new DeclarationStatement[0],contract,args,varArgs,body);
+  }
+
+  public Method(String name,Type return_type,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
+    this(Kind.Plain,name,return_type,new Type[0],new DeclarationStatement[0],contract,args,varArgs,body);
+  }
+
+  public Method(Kind kind, String name, Type return_type,Contract contract,DeclarationStatement args[],ASTNode body) {
+    this(kind,name,return_type,new Type[0],new DeclarationStatement[0],contract,args,false,body);
+  }
+
   public Method(Kind kind, String name,Type return_type, Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body) {
-    this(kind, name, return_type, new DeclarationStatement[0], contract, args, varArgs, body);
+    this(kind, name, return_type, new Type[0],new DeclarationStatement[0], contract, args, varArgs, body);
   }
 
-
-  public Method(Kind kind, String name,Type return_type, DeclarationStatement[] typeParameters, Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    super(name);
-    this.return_type=return_type;
-    this.throwy = throwy;
-    this.args=Arrays.copyOf(args,args.length);
-    this.var_args=varArgs;
-    for(int i=0;i<args.length;i++){
-      if (this.args[i].getParent()==null) this.args[i].setParent(this);
-    }
-    this.body=body;
-    this.kind=kind;
-    this.typeParameters = Arrays.copyOf(typeParameters,typeParameters.length);
-    setContract(contract);
+  public Method(Kind kind, String name,Type return_type,DeclarationStatement[] typeParameters,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body) {
+    this(kind, name, return_type, new Type[0],typeParameters, contract, args, varArgs, body);
   }
 
   public Kind getKind(){ return kind; }

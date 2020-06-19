@@ -17,8 +17,6 @@ import vct.col.ast.stmt.terminal.ReturnStatement;
 import vct.col.ast.type.*;
 import vct.col.ast.util.RecursiveVisitor;
 import vct.col.rewrite.*;
-import vct.silver.SilverTypeMap;
-import vct.util.Configuration;
 import vct.col.ast.util.*;
 import vct.parsers.rewrite.InferADTTypes;
 import vct.col.rewrite.TypeVarSubstitution;

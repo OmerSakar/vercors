@@ -1,6 +1,5 @@
 package vct.col.rewrite;
 
-import vct.col.ast.expr.MethodInvokation;
 import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.decl.ASTClass;
 import vct.col.ast.stmt.decl.Contract;
@@ -9,10 +8,9 @@ import vct.col.ast.stmt.decl.Method;
 import vct.col.ast.type.ClassType;
 import vct.col.ast.type.Type;
 import vct.col.ast.type.TypeVariable;
-import vct.col.ast.util.ASTFrame;
+import vct.col.ast.util.AbstractRewriter;
 import vct.col.ast.util.ContractBuilder;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.stream.IntStream;

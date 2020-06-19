@@ -19,7 +19,7 @@ program  : programDecl* block? EOF ;
 
 programDecl : claz|kernel|block|field|methodDecl ;
 
-claz : contract 'class' identifier '{' clazMember* '}' ;
+claz : contract 'class' identifier typeArgs? '{' clazMember* '}' ;
 clazMember : field | methodDecl | constructor;
 
 kernel : 'kernel' identifier '{' kernelMember* '}' ;
@@ -31,7 +31,7 @@ field : type identifierList ';' ;
 
 modifier : ( 'static' | 'thread_local' | 'inline' | 'pure' );
 
-methodDecl : contract modifier* type identifier '(' args? ')' methodBody ;
+methodDecl : contract modifier* typeArgs? type identifier '(' args? ')' methodBody ;
 methodBody : '=' expr ';' | constructorBody ;
 
 constructor : contract identifier '(' args? ')' constructorBody ;
@@ -126,7 +126,7 @@ unaryExpr
  ;
 
 newExpr
- : 'new' identifier tuple
+ : 'new' identifier typeArgs? tuple
  | 'new' nonArrayType newDims
  | nonTarget
  | target
@@ -296,8 +296,12 @@ gen_id : identifier | container ;
 
 classType : identifier typeArgs?;
 
-typeArgs : '<' exprList '>';
+typeArgs : '<' typeList '>';
 
+typeList
+    : type
+    | type ',' typeList
+    ;
 
 container : ('seq' | 'set' | 'bag');
 

@@ -9,6 +9,7 @@ import vct.col.ast.type.ClassType;
 import vct.col.ast.type.PrimitiveType;
 import vct.col.ast.type.Type;
 import vct.col.ast.type.TypeVariable;
+import vct.col.ast.util.AbstractRewriter;
 
 import java.util.*;
 import java.util.stream.Collectors;

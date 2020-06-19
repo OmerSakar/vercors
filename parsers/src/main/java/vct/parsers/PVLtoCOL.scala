@@ -8,7 +8,7 @@ import vct.antlr4.generated.PVLParser
 import vct.antlr4.generated.PVLParser._
 import vct.antlr4.generated.PVLParserPatterns._
 import vct.col.ast.`type`.ASTReserved._
-import vct.col.ast.`type`.{ASTReserved, PrimitiveSort, Type}
+import vct.col.ast.`type`.{ASTReserved, ClassType, PrimitiveSort, Type}
 import vct.col.ast.expr.StandardOperator._
 import vct.col.ast.expr.{Dereference, MethodInvokation, NameExpression, StandardOperator}
 import vct.col.ast.generic.{ASTNode, BeforeAfterAnnotations}
@@ -68,8 +68,20 @@ case class PVLtoCOL(fileName: String, tokens: CommonTokenStream, parser: PVLPars
   }
 
   def convertClass(tree: ClazContext): ASTClass = origin(tree, tree match {
-    case Claz0(contract, "class", name, "{", members, "}") =>
-      val result = create.ast_class(convertID(name), ClassKind.Plain, Array(), Array(), Array())
+    case Claz0(contract, "class", name, None, "{", members, "}") =>
+          val result = create.ast_class(convertID(name), ClassKind.Plain, Array(), Array(), Array())
+          members.map(convertDecl).foreach(_.foreach(result.add))
+          result.setFlag(ASTFlags.FINAL, true)
+          result
+    case Claz0(contract, "class", name, typeArgs, "{", members, "}") =>
+      val typeArgDecls = convertTypeArgs(typeArgs).map(
+        node => create.field_decl(
+          node.asInstanceOf[ClassType].getName,
+          create.type_variable(node.asInstanceOf[ClassType].getName)
+        )
+      )
+
+      val result = create.ast_class(convertID(name), ClassKind.Abstract, typeArgDecls.toArray, Array(), Array())
       members.map(convertDecl).foreach(_.foreach(result.add))
       result.setFlag(ASTFlags.FINAL, true)
       result
@@ -99,9 +111,17 @@ case class PVLtoCOL(fileName: String, tokens: CommonTokenStream, parser: PVLPars
   }
 
   def convertMethod(method: MethodDeclContext): Method = origin(method, method match {
-    case MethodDecl0(contract, modifiers, returnType, name, "(", maybeArgs, ")", bodyNode) =>
+    case MethodDecl0(contract, modifiers, maybeTypeArgs, returnType, name, "(", maybeArgs, ")", bodyNode) =>
       val returns = convertType(returnType)
       var (kind, body) = convertBody(bodyNode)
+
+      val typeArgs = convertTypeArgs(maybeTypeArgs).map(
+            node => create.field_decl(
+              node.asInstanceOf[ClassType].getName,
+              create.type_variable(node.asInstanceOf[ClassType].getName)
+            )
+          )
+
 
       modifiers.foreach {
         case Modifier0("pure") =>
@@ -112,8 +132,8 @@ case class PVLtoCOL(fileName: String, tokens: CommonTokenStream, parser: PVLPars
       if(returns.isPrimitive(PrimitiveSort.Resource))
         kind = Kind.Predicate
 
-      val result = create method_kind(kind, returns, convertContract(contract),
-        convertID(name), maybeArgs.map(convertArgs).getOrElse(Seq()).toArray, body.orNull)
+      val result = create.method_kind(kind, returns, typeArgs.toArray, convertContract(contract),
+        convertID(name), maybeArgs.map(convertArgs).getOrElse(Seq()).toArray, false, body.orNull)
 
       modifiers.map(convertModifier).foreach(mod => {
         /* These flags have special status in InlinePredicatesRewriter and CurrentThreadRewriter. Probably we should
@@ -217,6 +237,25 @@ case class PVLtoCOL(fileName: String, tokens: CommonTokenStream, parser: PVLPars
     case None => Seq()
   }
 
+  def convertTypeArgs(typeArgs: Option[TypeArgsContext]): Seq[ASTNode] = typeArgs match {
+    case Some(args) => convertTypeArgs(args)
+    case None => Seq()
+  }
+
+  def convertTypeArgs(typeArgs: TypeArgsContext): Seq[ASTNode] = typeArgs match {
+    case TypeArgs0("<", maybeTypeList,">") => convertTypeList(maybeTypeList)
+  }
+
+  def convertTypeList(args: Option[TypeListContext]): Seq[ASTNode] = args match {
+    case Some(args) => convertTypeList(args)
+    case None => Seq()
+  }
+
+  def convertTypeList(args: TypeListContext): Seq[ASTNode] = args match {
+    case TypeList0(t) => Seq(convertType(t))
+    case TypeList1(t, ",", tList) => convertType(t) +: convertTypeList(tList)
+  }
+
   def convertExpList(args: ExprListContext): Seq[ASTNode] = args match {
     case ExprList0(exp) =>
       Seq(expr(exp))
@@ -292,8 +331,8 @@ case class PVLtoCOL(fileName: String, tokens: CommonTokenStream, parser: PVLPars
     case UnaryExpr0("!", exp) => create expression(Not, expr(exp))
     case UnaryExpr1("-", exp) => create expression(UMinus, expr(exp))
     case UnaryExpr2(newExp) => expr(newExp)
-    case NewExpr0("new", clsName, args) =>
-      create new_object(create class_type(convertID(clsName)), convertExpList(args):_*)
+    case NewExpr0("new", clsName, maybeTypeArgs, args) =>
+      create new_object(create class_type(convertID(clsName), convertTypeArgs(maybeTypeArgs).asJava), convertExpList(args):_*)
     case NewExpr1("new", t, dims) =>
       val baseType = convertType(t)
       val dimSizes = dims match {
@@ -463,11 +502,7 @@ case class PVLtoCOL(fileName: String, tokens: CommonTokenStream, parser: PVLPars
         case "void" => PrimitiveSort.Void
       })
     case NonArrayType3(ClassType0(name, maybeTypeArgs)) =>
-      create class_type(convertID(name), (maybeTypeArgs match {
-        case None => Seq()
-        case Some(TypeArgs0(_, args, _)) =>
-          convertExpList(args)
-      }).asJava)
+      create class_type(convertID(name), convertTypeArgs(maybeTypeArgs).asJava)
   })
 
   def convertInvariant(inv: InvariantContext): (ContractBuilder => Unit) = (builder: ContractBuilder) => inv match {
