@@ -68,23 +68,17 @@ case class PVLtoCOL(fileName: String, tokens: CommonTokenStream, parser: PVLPars
   }
 
   def convertClass(tree: ClazContext): ASTClass = origin(tree, tree match {
-    case Claz0(contract, "class", name, None, "{", members, "}") =>
-          val result = create.ast_class(convertID(name), ClassKind.Plain, Array(), Array(), Array())
+    case Claz0(contract, "class", name, maybeTypeArgs, "{", members, "}") =>
+          val typeArgs = convertTypeArgs(maybeTypeArgs).map(
+              node => create.field_decl(node.asInstanceOf[ClassType].getName,
+                create.type_variable(node.asInstanceOf[ClassType].getName))
+            )
+          val kind = if (maybeTypeArgs.isDefined) ClassKind.Abstract else ClassKind.Plain
+
+          val result = create.ast_class(convertID(name), kind, typeArgs.toArray, Array(), Array())
           members.map(convertDecl).foreach(_.foreach(result.add))
           result.setFlag(ASTFlags.FINAL, true)
           result
-    case Claz0(contract, "class", name, typeArgs, "{", members, "}") =>
-      val typeArgDecls = convertTypeArgs(typeArgs).map(
-        node => create.field_decl(
-          node.asInstanceOf[ClassType].getName,
-          create.type_variable(node.asInstanceOf[ClassType].getName)
-        )
-      )
-
-      val result = create.ast_class(convertID(name), ClassKind.Abstract, typeArgDecls.toArray, Array(), Array())
-      members.map(convertDecl).foreach(_.foreach(result.add))
-      result.setFlag(ASTFlags.FINAL, true)
-      result
   })
 
   def convertKernel(tree: KernelContext): ASTClass = origin(tree, tree match {
