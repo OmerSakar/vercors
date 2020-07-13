@@ -5,11 +5,7 @@ import hre.config.IntegerSetting;
 import java.io.File;
 
 import vct.col.ast.stmt.decl.ProgramUnit;
-import vct.parsers.Parser;
-import vct.parsers.ColCParser;
-import vct.parsers.ColIParser;
-import vct.parsers.ColJavaParser;
-import vct.parsers.ColPVLParser;
+import vct.parsers.*;
 import vct.silver.ColSilverParser;
 
 import static hre.lang.System.*;
@@ -31,6 +27,7 @@ public class Parsers {
     case "jspec": return new ColJavaParser(7,false, true);
     case "pvl":return new ColPVLParser();
     case "sil":return new ColSilverParser();
+    case "cpp": return new COLCPPParser();
     }
     Fail("no parser for %s is known",extension);
     return null;
