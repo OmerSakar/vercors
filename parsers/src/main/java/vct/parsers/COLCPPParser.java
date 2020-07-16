@@ -42,14 +42,14 @@ public class COLCPPParser implements Parser {
             ec.report();
             Debug("parser got: %s",tree.toStringTree(parser));
 
-            ProgramUnit pu = PVLtoCOL.convert(tree,file_name,tokens,parser);
+            ProgramUnit pu = CPPtoCOL.convert(tree,file_name,tokens,parser);
             Progress("AST conversion pass took %dms",tk.show());
 
 
 //            Example from the PVLParser. It is a bit of a question what post-parse processing we need
 //            I Guess it would be nice to have something like
-//            pu=new FlattenVariableDeclarations(pu).rewriteAll();
-//            Progress("Variable pass took %dms",tk.show());
+            pu=new FlattenVariableDeclarations(pu).rewriteAll();
+            Progress("Variable pass took %dms",tk.show());
 //
 //            pu=new SpecificationCollector(PVLSyntax.get(),pu).rewriteAll();
 //            Progress("Shuffling specifications took %dms",tk.show());
@@ -70,6 +70,6 @@ public class COLCPPParser implements Parser {
             Warning("Exception %s while parsing %s",e.getClass(),file_name);
             throw e;
         }
-//        return null;
+        return null;
     }
 }
