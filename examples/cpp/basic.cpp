@@ -6,19 +6,17 @@
 int main()
 {
   int total = 0;
-  while (total < 5) {
-    total = total + total;
-  }
-  return total;
+  int i = 0;
 
-  if (total == 5) {
-    int i = 0;
-  } else {
-    int plz = 8;
+  /*@ 
+    loop_invariant 0 <= i && i <= 5;
+    loop_invariant (i>0) ==> total == \old(total) + i-1);
+  */
+  while (i < 5) {
+    total = total + i;
+    i = i + 1;
   }
-  if (total==6) total = 2;
+  /*@  assert false; */
+  return total;
 }
 
-//  for (int i = 0; i < 5; i++) {
-//    total = total + i;
-//  }

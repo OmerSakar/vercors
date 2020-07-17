@@ -37,6 +37,7 @@ primaryexpression
    | '(' expression ')'
    | idexpression
    | lambdaexpression
+   |   {specLevel>0}? valPrimary
    ;
 
 idexpression
@@ -339,6 +340,8 @@ statement
    | attributespecifierseq? jumpstatement
    | declarationstatement
    | attributespecifierseq? tryblock
+   | valEmbedStatementBlock
+   |   {specLevel>0}? valStatement
    ;
 
 labeledstatement
@@ -373,10 +376,11 @@ condition
    ;
 
 iterationstatement
-   : While '(' condition ')' statement
-   | Do statement While '(' expression ')' ';'
-   | For '(' forinitstatement condition? ';' expression? ')' statement
-   | For '(' forrangedeclaration ':' forrangeinitializer ')' statement
+   : valEmbedContract? While '(' condition ')' valEmbedContract?statement
+   | valEmbedContract? Do statement While '(' expression ')' ';'
+   | valEmbedContract? For '(' forinitstatement condition? ';' expression? ')' valEmbedContract? statement
+   | valEmbedContract? For '(' forrangedeclaration ':' forrangeinitializer ')' valEmbedContract? statement
+   | valEmbedContract? For '(' forrangedeclaration ':' forrangeinitializer ')' valEmbedContract? statement
    ;
 
 forinitstatement
@@ -440,8 +444,8 @@ aliasdeclaration
    ;
 
 simpledeclaration
-   : declspecifierseq? initdeclaratorlist? ';'
-   | attributespecifierseq declspecifierseq? initdeclaratorlist ';'
+   : valEmbedContract? declspecifierseq? initdeclaratorlist? ';'
+   | valEmbedContract? attributespecifierseq declspecifierseq? initdeclaratorlist ';'
    ;
 
 static_assertdeclaration
@@ -463,6 +467,7 @@ declspecifier
    | Friend
    | Typedef
    | Constexpr
+   | valEmbedModifiers
    ;
 
 declspecifierseq
@@ -493,6 +498,7 @@ typespecifier
    : trailingtypespecifier
    | classspecifier
    | enumspecifier
+   | {specLevel>0}? valType
    ;
 
 trailingtypespecifier
@@ -826,7 +832,7 @@ parameterdeclaration
    ;
 
 functiondefinition
-   : attributespecifierseq? declspecifierseq? declarator virtspecifierseq? functionbody
+   : valEmbedContract? attributespecifierseq? declspecifierseq? declarator virtspecifierseq? functionbody
    ;
 
 functionbody

@@ -11,7 +11,7 @@ langId: cppIdentifier;
 langType: typespecifier;
 langModifier: storageclassspecifier;
 langStatement: statement;
-langDecl: functiondefinition;
+langDecl: declaration;
 
 startSpec: LineStartSpec {specLevel++;} | BlockStartSpec {specLevel++;} | BlockStartSpecImmediate {specLevel++;};
 endSpec: EndSpec {specLevel--;};

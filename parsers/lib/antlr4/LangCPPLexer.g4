@@ -161,16 +161,6 @@ fragment Universalcharactername
    | '\\U' Hexquad Hexquad
    ;
 
-Identifier
-   :
-/*
-   Identifiernondigit
-   | Identifier Identifiernondigit
-   | Identifier DIGIT
-   */
-   Identifiernondigit (Identifiernondigit | DIGIT)*
-   ;
-
 fragment Identifiernondigit
    : NONDIGIT
    | Universalcharactername
@@ -369,10 +359,69 @@ Newline
    : ('\r' '\n'? | '\n') -> skip
    ;
 
-BlockComment
-   : '/*' .*? '*/' -> skip
+//BlockComment
+//   : '/*' .*? '*/' -> skip
+//   ;
+//
+//LineComment
+//   : '//' ~ [\r\n]* -> skip
+//   ;
+
+//
+// Additional symbols not defined in the lexical specification
+//
+
+//
+// Whitespace and comments
+//
+
+FileName : '"' ~[\r\n"]* '"' ;
+
+EndSpec
+    : {inBlockSpec}? '@'? '*/' {inBlockSpec = false;}
+    | {inLineSpec}? ('\n'|'\r\n') {inLineSpec = false;}
+    ;
+
+LineCommentStartInSpec: {inLineSpec}? '//' {inLineSpec=false;} -> mode(LINE_COMMENT);
+
+BlockStartSpecImmediate: '/*' [ \t\u000C]* '@' {inBlockSpec = true;};
+BlockCommentStart: '/*' -> mode(COMMENT), skip;
+LineCommentStart: '//' -> mode(LINE_COMMENT), skip;
+
+EmbeddedLatex
+    : '#' ~[\r\n]* '#' -> skip
+    ;
+
+/* This is the mode we are already in, but it serves as a workaround for the ANTLR import order. All rules in this file
+ * will have precedence over the imported rules, so any reserved keywords would never be lexed, because Identifier
+ * appears first. However, tokens with an explicit mode always appear after all other rules, so by explicitly setting
+ * the mode of Identifier to DEFAULT_MODE, it has lowest priority.
+ */
+mode DEFAULT_MODE;
+Identifier
+   :
+/*
+   Identifiernondigit
+   | Identifier Identifiernondigit
+   | Identifier DIGIT
+   */
+   Identifiernondigit (Identifiernondigit | DIGIT)*
    ;
 
-LineComment
-   : '//' ~ [\r\n]* -> skip
-   ;
+ExtraAt
+    : {inBlockSpec}? ('\n'|'\r\n') [ \t\u000C]* '@' -> skip
+    ;
+
+WS  :  [ \t\r\n\u000C] -> skip
+    ;
+
+mode COMMENT;
+BlockCommentStop: '*/' -> mode(DEFAULT_MODE), skip;
+BlockStartSpec: ('\n'|'\r\n') [ \t\u000C]* '@' {inBlockSpec = true;} -> mode(DEFAULT_MODE);
+BlockCommentContent: .+? -> skip;
+
+mode LINE_COMMENT;
+LineCommentStop: ('\n'|'\r\n') -> mode(DEFAULT_MODE), skip;
+LineStartSpec: '@' {inLineSpec = true;} -> mode(DEFAULT_MODE);
+LineCommentContent: .+? -> skip;
+
