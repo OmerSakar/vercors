@@ -1,0 +1,44 @@
+//  a field 
+field field_Please_k: Int
+
+method procedure_main(current_thread_id: Int, globals: Ref) returns (sys__result: Int)
+  requires 0 <= current_thread_id
+  ensures 1 != 1
+{
+  var total__1: Int
+  var i__2: Int
+  var __flatten_1__3: Int
+  total__1 := 0
+  i__2 := 0
+  while (i__2 < 5)
+    invariant 0 <= i__2 && i__2 <= 5
+    invariant 1 < i__2 ==> total__1 == old(total__1) + i__2 
+  {
+    total__1 := total__1 + 1
+    __flatten_1__3 := i__2
+    i__2 := i__2 + 1
+  }
+  sys__result := total__1
+  // assert
+  assert 1 != 1
+  inhale false
+}
+
+method method_Please_plz(diz: Ref, current_thread_id: Int, globals: Ref) returns (sys__result: Int)
+  requires diz != null
+  requires 0 <= current_thread_id
+{
+  inhale false
+}
+
+method internal_Please_plz(diz: Ref, current_thread_id: Int, globals: Ref) returns (sys__result: Int)
+  requires diz != null
+  requires 0 <= current_thread_id
+{
+  var pl__4: Int
+  pl__4 := 23423
+  sys__result := pl__4
+  // assert
+  assert true
+  inhale false
+}

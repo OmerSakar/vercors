@@ -298,6 +298,8 @@ logicalorexpression
 conditionalexpression
    : logicalorexpression
    | logicalorexpression '?' expression ':' assignmentexpression
+//TODO see if there is a better place for the rules below
+   | logicalorexpression '==>' logicalorexpression   
    ;
 
 assignmentexpression
@@ -379,7 +381,6 @@ iterationstatement
    : valEmbedContract? While '(' condition ')' valEmbedContract?statement
    | valEmbedContract? Do statement While '(' expression ')' ';'
    | valEmbedContract? For '(' forinitstatement condition? ';' expression? ')' valEmbedContract? statement
-   | valEmbedContract? For '(' forrangedeclaration ':' forrangeinitializer ')' valEmbedContract? statement
    | valEmbedContract? For '(' forrangedeclaration ':' forrangeinitializer ')' valEmbedContract? statement
    ;
 
@@ -498,7 +499,6 @@ typespecifier
    : trailingtypespecifier
    | classspecifier
    | enumspecifier
-   | {specLevel>0}? valType
    ;
 
 trailingtypespecifier
@@ -536,6 +536,7 @@ simpletypespecifier
    | Void
    | Auto
    | decltypespecifier
+   | {specLevel>0}? valType
    ;
 
 thetypename

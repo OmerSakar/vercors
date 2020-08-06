@@ -4,12 +4,13 @@ import org.antlr.v4.runtime.{CommonTokenStream, ParserRuleContext}
 import vct.antlr4.generated.CPPParser
 import vct.antlr4.generated.CPPParser._
 import vct.antlr4.generated.CPPParserPatterns._
-import vct.col.ast.`type`.{ASTReserved, PrimitiveSort, Type}
+import vct.col.ast.`type`.{ClassType, ASTReserved, PrimitiveSort, Type}
 import vct.col.ast.expr.{NameExpression, NameExpressionKind, StandardOperator}
 import vct.col.ast.generic.ASTNode
 import vct.col.ast.stmt.composite.BlockStatement
 import vct.col.ast.stmt.decl.Method.Kind
-import vct.col.ast.stmt.decl.{ASTDeclaration, ASTSpecial, DeclarationStatement, Method, ProgramUnit, VariableDeclaration}
+import vct.col.ast.stmt.decl.{ASTClass, ASTDeclaration, ASTSpecial, DeclarationStatement, Method, ProgramUnit, VariableDeclaration}
+import vct.col.ast.stmt.decl.ASTClass.ClassKind;
 import vct.col.ast.util.ContractBuilder
 import vct.col.ast.expr.StandardOperator._
 
@@ -32,13 +33,15 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     }
   }
 
-  def convertDeclarationseq(tree: DeclarationseqContext): Seq[ASTDeclaration]  = tree match {
+  def convertDeclarationseq(tree: DeclarationseqContext): Seq[ASTNode]  = tree match {
     case Declarationseq0(decl) => Seq(convertDeclaration(decl))
     case Declarationseq1(declseq, decl) => convertDeclarationseq(declseq) ++ Seq(convertDeclaration(decl))
   }
 
-  def convertDeclaration(tree: DeclarationContext): ASTDeclaration = tree match {
-    case Declaration0(block) => fail(tree, "Unsupported syntax")
+  def convertDeclaration(tree: DeclarationContext): ASTNode = tree match {
+    //TODO I think Declaration0 is for static variables, static in the sense
+    //      that they are defined at top-level; 
+    case Declaration0(block) => convertBlockdeclaration(block)
     case Declaration1(func) => {
       val function = convertFunctiondefinition(func)
       function.setStatic(true)
@@ -51,7 +54,19 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Declaration6(namespace) => fail(tree, "Unsupported syntax")
     case Declaration7(empty) => fail(tree, "Unsupported syntax")
     case Declaration8(attr) => fail(tree, "Unsupported syntax")
+    case _ => fail (tree, "Unsupported syntax: " + tree.getClass.getSimpleName)
   }
+
+  def convertBlockdeclaration(tree: BlockdeclarationContext): ASTNode = tree match {
+    case Blockdeclaration0(simpledecl) => convertStatement(simpledecl)
+    case Blockdeclaration1(asmdef) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Blockdeclaration2(namespacealiasdef) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Blockdeclaration3(singdecl) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Blockdeclaration4(usingdirective) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Blockdeclaration5(static_assertdecl) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Blockdeclaration6(aliasdecl) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Blockdeclaration7(opaqueenumdecl) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+  } 
 
   def convertFunctiondefinition(tree: FunctiondefinitionContext): ASTDeclaration = origin(tree, tree match {
     case Functiondefinition0(maybeContract, maybeAttrSeq, maybeDeclSpecSeq, declarator, maybeVirtSpecSeq, funcBody) => {
@@ -63,7 +78,8 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
       }
       val declspecseq = maybeDeclSpecSeq match {
         case None => create primitive_type(PrimitiveSort.Void)
-        case Some(declSpecSeq) => convertDeclspecifierseq(declSpecSeq)
+        //TODO fix the line below
+        case Some(declSpecSeq) => convertDeclspecifierseq(declSpecSeq).head.asInstanceOf[Type]
       }
       val virtspecseq = maybeVirtSpecSeq match {
         case None => Seq()
@@ -71,7 +87,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
       }
       val contract = getContract(convertValContract(maybeContract))
       //TODO contract, arguments, kind, declspecseq(which can contain the kind etc)
-      create.method_kind(Kind.Plain, declspecseq, null /*TODO contract*/,
+      create.method_kind(Kind.Plain, declspecseq, contract,
         name, Seq.empty[DeclarationStatement].toArray, body)//maybeArgs.map(convertArgs).getOrElse(Seq()).toArray, body.orNull)
     }
   })
@@ -79,23 +95,25 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
   def expr(tree: ParserRuleContext): ASTNode = origin(tree, tree match {
     //
     case Expression0(assignmentExpr) => expr(assignmentExpr)
-    case Expression1(expr, _, assignmentExpr) => fail(tree, "Unsupported syntax")
+    case Expression1(expr, _, assignmentExpr) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
 
     case Assignmentexpression0(conditionalexpr) => expr(conditionalexpr)
     case Assignmentexpression1(logicalor, assignop, initclause) => {
       assignop match {
         case Assignmentoperator0("=") => {}
-        case _ => fail(assignop, "Unsupported syntax")
+        case _ => fail(assignop, "Unsupported Syntax" + tree.getClass.getSimpleName)
       }
       create assignment(
         expr(logicalor),
         convertInitializerclause(initclause)
       )
     }
-    case Assignmentexpression2(throwexpr) => fail(tree, "Unsupported syntax")
+    case Assignmentexpression2(throwexpr) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
 
     case Conditionalexpression0(logicalExpr) => expr(logicalExpr)
     case Conditionalexpression1(cond, _, yes, _, no) => create expression(StandardOperator.ITE, expr(cond), expr(yes), expr(no))
+    case Conditionalexpression2(lft, "==>", rght) => create expression(StandardOperator.Implies, expr(lft), expr(rght)) 
+
 
     case Logicalorexpression0(andexpr) => expr(andexpr)
     case Logicalorexpression1(lft, "||", rght) => create expression(StandardOperator.Or, expr(lft), expr(rght))
@@ -116,7 +134,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
     case Equalityexpression0(relationalexpr) => expr(relationalexpr)
     case Equalityexpression1(lft, "==", rght) => create expression(StandardOperator.EQ, expr(lft), expr(rght))
-    case Equalityexpression1(lft, "!=", rght) => create expression(StandardOperator.NEQ, expr(lft), expr(rght))
+    case Equalityexpression2(lft, "!=", rght) => create expression(StandardOperator.NEQ, expr(lft), expr(rght))
 
     case Relationalexpression0(shiftexpr) => expr(shiftexpr)
     case Relationalexpression1(lft, "<", rght) => create expression(StandardOperator.LT, expr(lft), expr(rght))
@@ -146,20 +164,25 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Multiplicativeexpression3(lft, "%", rght) => create expression(StandardOperator.Mod, expr(lft), expr(rght))
 
     case Pmexpression0(castexpr) => expr(castexpr)
-    case Pmexpression1(lft, ".*", rght) => fail(tree, "Unsupported syntax")
-    case Pmexpression2(lft, "->*", rght) => fail(tree, "Unsupported syntax")
+    case Pmexpression1(lft, ".*", rght) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Pmexpression2(lft, "->*", rght) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
 
     case Castexpression0(unaryexpr) => expr(unaryexpr)
-    case Castexpression1("(", thetypeid, ")", castexpr) => fail(tree, "Unsupported syntax")
+    case Castexpression1("(", thetypeid, ")", castexpr) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
 
     case Unaryexpression0(postfixexpr) => expr(postfixexpr)
     //Other cases ommited
 
     case Postfixexpression0(primaryexpr) => expr(primaryexpr)
+    case Postfixexpression12(postexpr, "++") => create expression(PostIncr, expr(postexpr))
+    case Postfixexpression13(postexpr, "--") => create expression(PostDecr, expr(postexpr))
     //Other cases ommited
+
+
 
     case Primaryexpression0(literalexpr) => expr(literalexpr)
 //    case Primaryexpression1(_) => create this_expression()
+    case Primaryexpression2("(", bracketExpr, ")") => expr(bracketExpr)
     case Primaryexpression3(idexpr) => create unresolved_name convertIdexpression(idexpr)
     case Primaryexpression5(valPrimary) => valExpr(valPrimary)
     case Literal0(integer) => create constant Integer.parseInt(integer)
@@ -169,6 +192,11 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     }
 
     case Condition0(condexpr) => expr(condexpr)
+    case _ => {
+        //TODO remove this clause since this is only used to debug
+        fail(tree, "Debug: " +tree.getClass.getSimpleName)
+
+    }
   })
 
   def convertFunctionbody(tree: FunctionbodyContext): BlockStatement= origin(tree, tree match {
@@ -185,21 +213,21 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Statementseq1(stmntseq, stmnt) => convertStatementseq(stmntseq) :+ convertStatement(stmnt)
   })
 
-  def convertStatement(tree: ParserRuleContext): ASTNode = tree match {
+  def convertStatement(tree: ParserRuleContext): ASTNode = origin(tree, tree match {
     case Statement0(labeledStmnt) => convertStatement(labeledStmnt)
     case Statement1(_, exprStmnt) => convertStatement(exprStmnt)
     case Statement2(_, compoundStmnt) => convertStatement(compoundStmnt)
     case Statement3(_, selectionStmnt) => convertStatement(selectionStmnt)
     case Statement4(_, iterationStmnt) => convertStatement(iterationStmnt)
     case Statement5(_, jumpStmnt) => convertStatement(jumpStmnt)
-    case Statement6(declStmnt) => convertStatement(declStmnt)
+    case Statement6(declStmnt) => convertDeclarationstatement(declStmnt)
     case Statement7(_, tryblock) => convertStatement(tryblock)
     case Statement8(valstmnt) => create block (convertValStat(valstmnt):_*)
     case Statement9(valstmnt) => convertValStat(valstmnt)
 
-    case Labeledstatement0(_) => fail(tree, "Unsupported syntax")
-    case Labeledstatement1(_) => fail(tree, "Unsupported syntax")
-    case Labeledstatement2(_) => fail(tree, "Unsupported syntax")
+    case Labeledstatement0(_) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Labeledstatement1(_) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Labeledstatement2(_) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
 
     case Expressionstatement0(None, _) => new BlockStatement
     case Expressionstatement0(Some(exprstmnt), _) => expr(exprstmnt)
@@ -213,56 +241,71 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Selectionstatement1("if", "(", condition, ")", ifstmnt, "else", elsestmnt) => {
       create ifthenelse(expr(condition), convertStatement(ifstmnt), convertStatement(elsestmnt))
     }
-    case Selectionstatement2("switch", "(", condition, ")", switchstmnt) => fail(tree, "Unsupported syntax")
+    case Selectionstatement2("switch", "(", condition, ")", switchstmnt) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
 
     case Iterationstatement0(maybeContract1, "while", "(", condition, ")", maybeContract2, stmnt) => {
       create while_loop(expr(condition), convertStatement(stmnt), getContract(convertValContract(maybeContract1), convertValContract(maybeContract2)))
     }
-    case Iterationstatement1(maybeContr1, "do", stmnt, "while", "(", expr, ")", _) => fail(tree, "Unsupported syntax")
-    case Iterationstatement2(maybeContr1, "for", "(", _, _, ";", _, ")", maybeContr2, stmnt) => fail(tree, "Unsupported syntax")
-    case Iterationstatement3(maybeContr1, "for", "(", _, ":", _, ")", maybeContr2, stmnt) => fail(tree, "Unsupported syntax")
+    case Iterationstatement1(maybeContr1, "do", stmnt, "while", "(", expr, ")", _) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Iterationstatement2(maybeContr1, "for", "(", initStat, maybeCond, ";", maybeUpdate, ")", maybeContr2, body) => {
+      val contract = getContract(convertValContract(maybeContr1), convertValContract(maybeContr2))
 
-    case Jumpstatement0("break", ";") => fail(tree, "Unsupported syntax")
-    case Jumpstatement1("continue", ";") => fail(tree, "Unsupported syntax")
+      val loop = create for_loop(
+            convertStatement(initStat),
+            maybeCond.map(expr).orNull,
+            maybeUpdate.map(expr).orNull,
+            convertStatement(body)
+      )
+      loop.setContract(contract)
+      loop
+    }
+    case Iterationstatement3(maybeContr1, "for", "(", _, ":", _, ")", maybeContr2, stmnt) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+
+    case Jumpstatement0("break", ";") => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Jumpstatement1("continue", ";") => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
     case Jumpstatement2("return", None, ";") => create return_statement()
     case Jumpstatement2("return", Some(returnexpr), ";") => create return_statement(expr(returnexpr))
-    case Jumpstatement3("return", initList, ";") => fail(tree, "Unsupported syntax")
-    case Jumpstatement4("goto", cppId, ";") => fail(tree, "Unsupported syntax")
+    case Jumpstatement3("return", initList, ";") => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
+    case Jumpstatement4("goto", cppId, ";") => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
 
-    case Declarationstatement0(blockDecl) => convertStatement(blockDecl)
-    case Blockdeclaration0(simpledecl) => convertStatement(simpledecl)
-    case Blockdeclaration1(asmdef) => fail(tree, "Unsupported syntax")
-    case Blockdeclaration2(namespacealiasdef) => fail(tree, "Unsupported syntax")
-    case Blockdeclaration3(singdecl) => fail(tree, "Unsupported syntax")
-    case Blockdeclaration4(usingdirective) => fail(tree, "Unsupported syntax")
-    case Blockdeclaration5(static_assertdecl) => fail(tree, "Unsupported syntax")
-    case Blockdeclaration6(aliasdecl) => fail(tree, "Unsupported syntax")
-    case Blockdeclaration7(opaqueenumdecl) => fail(tree, "Unsupported syntax")
+    case Forinitstatement0(exprStat) => convertStatement(exprStat)
+    case Forinitstatement1(simpleDecl) => convertStatement(simpleDecl)
 
-    case Simpledeclaration0(maybeContract, Some(declSpecSeq), Some(initDeclList), _) => {
+
+     case Simpledeclaration0(maybeContract, Some(declSpecSeq), Some(initDeclList), _) => {
         // TODO find out what the contract here is
-      val typeofVar = convertDeclspecifierseq(declSpecSeq)
-      val result = new VariableDeclaration(typeofVar)
-      convertInitdeclaratorlist(initDeclList).foreach{
-        case (name, init) =>
-          result.add(DeclarationStatement(name, VariableDeclaration.common_type, init))
-      }
-      result
+        val typeofVar = convertDeclspecifierseq(declSpecSeq)
+        val result = new VariableDeclaration(typeofVar.head.asInstanceOf[Type])
+        convertInitdeclaratorlist(initDeclList).foreach{
+            case (name, init) =>
+            result.add(DeclarationStatement(name, VariableDeclaration.common_type, init))
+        }
+	result
     }
+    case Simpledeclaration0(maybeContract, maybeDecl, _, _) => {
+        maybeDecl match {
+	    //TODO how do we combine these declspecs? 
+            case Some(decl) => convertDeclspecifierseq(decl).head
+            case None => new BlockStatement()
+	}
+        //fail(tree, maybeContract + " "+ maybeDecl)
+    }
+ 
+    case _ => fail(tree, "" + tree.getClass.getSimpleName)
+  })
+
+  def convertDeclarationstatement(tree: DeclarationstatementContext): ASTNode = tree match {
+     case Declarationstatement0(blockDecl) => convertBlockdeclaration(blockDecl)
   }
 
   def convertInitdeclaratorlist(tree: InitdeclaratorlistContext): Seq[(String, Option[ASTNode])] = tree match {
-    case Initdeclaratorlist0(initdecl) => convertInitdeclarator(initdecl)
+    case Initdeclaratorlist0(initdecl) => Seq(convertInitdeclarator(initdecl))
+    case Initdeclaratorlist1(decllist, ",", initdecl) => convertInitdeclaratorlist(decllist) ++ Seq(convertInitdeclarator(initdecl))
   }
 
-  def convertInitdeclarator(tree: InitdeclaratorContext): Seq[(String, Option[ASTNode])] = tree match {
-    case Initdeclarator0(decl, None) => Seq((convertDeclarator(decl), None))
-    case Initdeclarator0(decl, Some(initializer)) => {
-
-//      create assignment (null, null)
-      Seq((convertDeclarator(decl), Some(convertInitializer(initializer))))
-    }
-
+  def convertInitdeclarator(tree: InitdeclaratorContext): (String, Option[ASTNode]) = tree match {
+    case Initdeclarator0(decl, None) => (convertDeclarator(decl), None)
+    case Initdeclarator0(decl, Some(initializer)) => (convertDeclarator(decl), Some(convertInitializer(initializer)))
   }
 
   def convertInitializer(tree: InitializerContext) = tree match {
@@ -277,20 +320,123 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Initializerclause0(assignment) => expr(assignment)
   }
 
-  def convertDeclspecifierseq(tree: DeclspecifierseqContext) = tree match {
-    case Declspecifierseq0(declSpec, _) => convertDeclSpecifier(declSpec)
+  def convertDeclspecifierseq(tree: DeclspecifierseqContext): Seq[ASTNode] = tree match {
+    case Declspecifierseq0(declSpec, _) => Seq(convertDeclSpecifier(declSpec) match {
+        case Left(l) => l
+        case Right(r) => r
+    })
+    case Declspecifierseq1(declspec, declspeclist) => Seq(convertDeclSpecifier(declspec) match {
+        case Left(l) => l
+        case Right(r) => r
+    }) ++ convertDeclspecifierseq(declspeclist)
   }
 
   def convertDeclSpecifier(tree: DeclspecifierContext) = tree match {
     case Declspecifier1(typeSpec) => convertTypespecifier(typeSpec)
   }
 
-  def convertTypespecifier(tree: TypespecifierContext): Type = tree match {
-    case Typespecifier0(trailingtype) => convertTrailingtypespecifier(trailingtype)
+  def convertTypespecifier(tree: TypespecifierContext): Either[Type,ASTDeclaration] = tree match {
+    case Typespecifier0(trailingtype) => Left(convertTrailingtypespecifier(trailingtype))
+    //case _ => fail(tree, "Unsupported type: " + tree.getClass.getSimpleName)
+    case Typespecifier1(classspecifier) => Right(convertClassspecifier(classspecifier))
   }
 
+  def convertClassspecifier(tree: ClassspecifierContext): ASTClass = origin(tree, tree match {
+    case Classspecifier0(head, _, maybeMembers, _) => {
+	//TODO fill class.
+	val(classkind, attrSpecSeq, classtype, isFinal, baseclass) = convertClasshead(head)
+        val newClass = create.ast_class(classtype.getName, classkind, null, null, null);
+        val members = maybeMembers match {
+            case None => Seq.empty[ASTDeclaration]
+            case Some(members) => convertMemberspecification(members)
+        }
+        members.foreach(newClass.add)
+        newClass 
+    }
+  })
+
+  def convertMemberspecification(tree: MemberspecificationContext): Seq[ASTDeclaration] = origin(tree, tree match {
+    case Memberspecification0(memberdecl, maybeMemberspec) => {
+        val memberSpecs = maybeMemberspec match {
+            case None => Seq.empty[ASTDeclaration]
+            case Some(memberSpec) => convertMemberspecification(memberSpec)
+        }
+        convertMemberdeclaration(memberdecl) ++ memberSpecs
+    } 
+    case Memberspecification1(accessspec, _, memberspec) => fail(tree, "Class Fields not supported.")
+  })
+
+  def convertMemberdeclaration(tree: MemberdeclarationContext): Seq[ASTDeclaration] = origin(tree, tree match {
+    case Memberdeclaration0(attrspecseq, maybeDeclspecseq, maybeMemberdecllist, _) => {
+      var result = Seq.empty[DeclarationStatement]
+      val declspecseq = maybeDeclspecseq match {
+        case None => create primitive_type(PrimitiveSort.Void)
+        //TODO fix the line below
+        case Some(declSpecSeq) => convertDeclspecifierseq(declSpecSeq).head.asInstanceOf[Type]
+      }
+
+      maybeMemberdecllist match {
+        case None =>
+        case Some(memberlist) => convertMemberdeclatorlist(memberlist).foreach{
+          case (name, init) =>
+          result = result :+ create.field_decl(name, declspecseq, init.getOrElse(null))
+          }
+      }
+      result      
+    }
+    case Memberdeclaration1(functionDef) => Seq(convertFunctiondefinition(functionDef))
+  })
+
+  def convertMemberdeclatorlist(tree: MemberdeclaratorlistContext): Seq[(String, Option[ASTNode])] = tree match {
+    case Memberdeclaratorlist0(memberdecl) => Seq(convertMemberdeclarator(memberdecl)) 
+    case Memberdeclaratorlist1(memberdecllist, _, memberdecl) => convertMemberdeclatorlist(memberdecllist) :+ convertMemberdeclarator(memberdecl)
+  }
+
+  def convertMemberdeclarator(tree: MemberdeclaratorContext): (String, Option[ASTNode]) = tree match {
+    //TODO check if you want to know if it is final or not.
+    case Memberdeclarator0(decl, maybevirtspecseq, maybepurespec) => (convertDeclarator(decl), None)
+    case Memberdeclarator1(decl, maybebraceorequalinit) => {
+        val initValue = maybebraceorequalinit match {
+            case None => None
+            case Some(braceorequalinit) => Some(convertBraceorequalinitializer(braceorequalinit))
+        }
+        (convertDeclarator(decl), initValue)
+    }
+    case _ => fail(tree, "Hierohiero: " + tree.getClass.getSimpleName)
+  }
+
+  def convertClasshead(tree: ClassheadContext): (ClassKind, Seq[ASTNode], ClassType, Boolean, ASTNode)= tree match {
+    case Classhead0(classkey, maybeAttrSpecSeq, headname, maybeVirtSpec, maybeBaseClause) => {
+        val finalClass = maybeVirtSpec match {
+	    case None => false
+	    case Some(b) => true
+	}
+    	(convertClasskey(classkey), Seq.empty[ASTNode], convertClassheadname(headname), finalClass, null)
+    }
+    case Classhead1(classkey, maybeAttrSpecSeq, maybeBaseClause) => {
+	//TODO see how you can handle this. Maybe add the anonymous class as an ASTClass with a given name.
+        (convertClasskey(classkey), Seq.empty[ASTNode], null, false, null)
+    } 
+  }
+
+  def convertClassheadname(tree: ClassheadnameContext) = origin(tree, tree match {
+    case Classheadname0(_, classname) => convertClassname(classname)
+  })
+
+  def convertClassname(tree: ClassnameContext): ClassType = tree match {
+    case Classname0(cppid) => create.class_type(convertCppIdentifier(cppid))
+  }
+
+  def convertClasskey(tree: ClasskeyContext) = tree match {
+    case Classkey0("class") => ClassKind.Plain
+    case _ => fail(tree, "Unsupported construct")
+  } 
+
   def convertTypespecifier(tree: LangTypeContext): Type = tree match {
-    case LangType0(t) => convertTypespecifier(t)
+    case LangType0(t) => convertTypespecifier(t) match {
+        case Left(t) => t
+        case Right(d) => fail(tree, "terrible things")
+    }
   }
 
   def convertTrailingtypespecifier(tree: TrailingtypespecifierContext): Type = tree match {
@@ -325,7 +471,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
   def convertIdexpression(tree: IdexpressionContext) = tree match {
     case Idexpression0(unqual) => convertUnqualifiedid(unqual)
-    case Idexpression1(qual) => fail(tree, "Unsupported syntax")
+    case Idexpression1(qual) => fail(tree, "Unsupported Syntax" + tree.getClass.getSimpleName)
   }
 
   def convertUnqualifiedid(tree: UnqualifiedidContext) = tree match {
@@ -661,7 +807,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
       mods.map(convertValModifier)
   })
 
-  def convertValDecl(decl: ValDeclarationContext): ASTDeclaration = origin(decl, decl match {
+  def convertValDecl(decl: ValDeclarationContext): ASTNode = origin(decl, decl match {
     case ValDeclaration0(clauses, mods, t, name, _, args, _, body) =>
       val contract = getContract(clauses.map(convertValClause):_*)
       val func = create function_decl(
@@ -693,12 +839,12 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
       }
   })
 
-  def convertValDecl(decl: ValEmbedDeclarationBlockContext): Seq[ASTDeclaration] = decl match {
+  def convertValDecl(decl: ValEmbedDeclarationBlockContext): Seq[ASTNode] = decl match {
     case ValEmbedDeclarationBlock0(_, decls, _) =>
       decls.map((decl) => convertValDecl(decl))
   }
 
-  def convertDeclaration(tree: LangDeclContext): ASTDeclaration = tree match {
+  def convertDeclaration(tree: LangDeclContext): ASTNode = tree match {
     case LangDecl0(decl) => convertDeclaration(decl)
   }
 

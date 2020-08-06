@@ -18,6 +18,7 @@ import vct.parsers.rewrite.SpecificationCollector;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.util.Arrays;
 
 import static hre.lang.System.*;
 
@@ -64,7 +65,9 @@ public class COLCPPParser implements Parser {
             Fail("File %s has not been found",file_name);
         } catch (Exception e) {
             DebugException(e);
-            Abort("Exception %s while parsing %s",e.getClass(),file_name);
+	    String message = "\n";
+            for (StackTraceElement s: e.getStackTrace()) { message += s.toString() + "\n"; }
+            Abort("Exception %s while parsing %s %s %s",e.getClass(),file_name, message, e.getMessage());
         } catch (Throwable e) {
             DebugException(e);
             Warning("Exception %s while parsing %s",e.getClass(),file_name);
