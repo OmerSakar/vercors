@@ -2,6 +2,9 @@
 #include <iostream>
 #include <string>
 
+
+//int x = 123;
+
 /*@
  requires true;
  ensures 1 != 1;
@@ -17,11 +20,19 @@ int main()
   for (int i = 0; i < 5; i++) {
     total = total + 1;
   }
+
+  Please p;
+  
+  vector<double> a;
+  //std::vector<double> a;
+
+  // cout<<p.getK();
+    
   return total;
 }
 
 class Please {
-    int k = 16;
+    int k;
     
     int plz()
     {

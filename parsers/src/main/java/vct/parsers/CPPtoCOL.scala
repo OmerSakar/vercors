@@ -425,11 +425,48 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
   def convertClassname(tree: ClassnameContext): ClassType = tree match {
     case Classname0(cppid) => create.class_type(convertCppIdentifier(cppid))
+    case Classname1(simptempid) => convertSimpletemplateid(simptempid) 
+  }
+
+  def convertSimpletemplateid(tree: SimpletemplateidContext): ClassType = origin(tree, tree match {
+    case Simpletemplateid0(templname, _, templarglist, _) => {
+      val classArgs = templarglist match {
+         case None => Seq.empty[Type]
+         case Some(lst) => convertTemplateargumentlist(lst)
+      }
+      val newClasstype = create.class_type(convertTemplatename(templname), classArgs:_*) 
+      newClasstype
+    }
+  }) 
+
+  def convertTemplateargumentlist(tree: TemplateargumentlistContext): Seq[Type] = origin(tree, tree match {
+    // The _ here is the ... operator. I dont think we have support for this, but we can represent it as an array/seq 
+    case Templateargumentlist0(templarg, _) => Seq(convertTemplateargument(templarg))
+    case Templateargumentlist1(templarglist, _, templarg, _) => convertTemplateargumentlist(templarglist) :+ convertTemplateargument(templarg)
+  })  
+
+  def convertTemplateargument(tree: TemplateargumentContext): Type = origin(tree, tree match {
+    case Templateargument0(thetypeid) => convertThetypeid(thetypeid) 
+    case Templateargument1(constantexpression) => fail(tree, "tmp")
+    case Templateargument2(idexpr) => fail(tree, "tmp")
+  })
+
+  def convertThetypeid(tree: ThetypeidContext) = origin(tree, tree match {
+    case Thetypeid0(tspecseq, _) => convertTypespecifierseq(tspecseq).head
+
+  })
+
+  def convertTemplatename(tree: TemplatenameContext): String = tree match {
+    case Templatename0(cppid) => convertCppIdentifier(cppid) 
   }
 
   def convertClasskey(tree: ClasskeyContext) = tree match {
     case Classkey0("class") => ClassKind.Plain
-    case _ => fail(tree, "Unsupported construct")
+    //TODO Find out how C handles structs.
+    case Classkey1("struct") => fail(tree, "Struct types are not supported.")
+    //TODO Unions are interesting. Maybe we can make a domain Either with two type parameters.
+    //      Which can then be nested to get the different values. We could also generate it.
+    case Classkey2("union") => fail(tree, "Union types are not supported.")
   } 
 
   def convertTypespecifier(tree: LangTypeContext): Type = tree match {
@@ -439,15 +476,53 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     }
   }
 
+  def convertTypespecifierseq(tree: TypespecifierseqContext): Seq[Type] = origin(tree, tree match {
+    case Typespecifierseq0(tspec, _) =>  {
+         val tspe = convertTypespecifier(tspec) match {
+           case Left(t) => t
+           case Right(d) => fail(tree, "terrible things")
+         }
+         Seq(tspe)
+    }
+    case Typespecifierseq1(tspec, tspecseq) => {
+      val ltype = convertTypespecifier(tspec) match {
+         case Left(t) => t
+         case Right(d) => fail(tree, "terrible things")
+         }
+      ltype +: convertTypespecifierseq(tspecseq) 
+    }
+  })
+
   def convertTrailingtypespecifier(tree: TrailingtypespecifierContext): Type = tree match {
     case Trailingtypespecifier0(simp) => convertSimpletypespecifier(simp)
   }
 
+  def convertThetypename(tree: ThetypenameContext): Type = origin(tree, tree match {
+    case Thetypename0(classname) => convertClassname(classname) 
+    case Thetypename1(enumname) => fail(tree, "Enum type not supported")
+    case Thetypename2(typedefname) => fail(tree, "Typedef type not supported")
+    case Thetypename3(simptemplid) => fail(tree, "Unsupported Syntax") 
+  })
+
   def convertSimpletypespecifier(tree: SimpletypespecifierContext): Type = tree match {
+    case Simpletypespecifier0(_, thetypename) => convertThetypename(thetypename) 
+    case Simpletypespecifier1(_, _, _) => fail(tree, "Unsupported type: " + tree.getClass.getSimpleName)
+    case Simpletypespecifier2("char") => create primitive_type(PrimitiveSort.Char) 
+    case Simpletypespecifier3("char16_t") => fail(tree, "Unsupported type")
+    case Simpletypespecifier4("char32_t") => fail(tree, "Unsupported type")
+    case Simpletypespecifier5("wchar_t") => fail(tree, "Unsupported type")
     case Simpletypespecifier6("bool") => create primitive_type(PrimitiveSort.Boolean)
+    case Simpletypespecifier7("short") => create primitive_type(PrimitiveSort.Short)
     case Simpletypespecifier8("int") => create primitive_type(PrimitiveSort.Integer)
-    case Simpletypespecifier12("float") => create primitive_type(PrimitiveSort.Float)
-    case _ => fail(tree, "Unsupported type")
+    case Simpletypespecifier9("long") => create primitive_type(PrimitiveSort.Long) 
+    case Simpletypespecifier10("signed") => fail(tree, "Unsupported type")
+    case Simpletypespecifier11("unsigned") => fail(tree, "Unsupported type")
+    case Simpletypespecifier12("float") => create primitive_type(PrimitiveSort.Float)  
+    case Simpletypespecifier13("double") => create primitive_type(PrimitiveSort.Double)
+    case Simpletypespecifier14("void") => create primitive_type(PrimitiveSort.Void)
+    case Simpletypespecifier15("auto") => fail(tree, "Unsupported type")
+    case Simpletypespecifier16(decltypespec) => fail(tree, "Unsupported type")
+    case Simpletypespecifier17(valType) => convertValType(valType)
   }
 
   def convertDeclarator(tree: DeclaratorContext): String = tree match {

@@ -8,6 +8,7 @@ method procedure_main(current_thread_id: Int, globals: Ref) returns (sys__result
   var total__1: Int
   var i__2: Int
   var __flatten_1__3: Int
+  var p__4: Ref
   total__1 := 0
   i__2 := 0
   while (i__2 < 5)
@@ -35,9 +36,9 @@ method internal_Please_plz(diz: Ref, current_thread_id: Int, globals: Ref) retur
   requires diz != null
   requires 0 <= current_thread_id
 {
-  var pl__4: Int
-  pl__4 := 23423
-  sys__result := pl__4
+  var pl__5: Int
+  pl__5 := 23423
+  sys__result := pl__5
   // assert
   assert true
   inhale false
