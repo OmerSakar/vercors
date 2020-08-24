@@ -233,9 +233,14 @@ pmexpression
 
 multiplicativeexpression
    : pmexpression
-   | multiplicativeexpression '*' pmexpression
-   | multiplicativeexpression '/' pmexpression
-   | multiplicativeexpression '%' pmexpression
+   | multiplicativeexpression multiplicativeOp pmexpression
+   ;
+
+multiplicativeOp
+   : '*'
+   | '/'
+   | '%'
+   | {specLevel>0}? valMulOp
    ;
 
 additiveexpression
@@ -343,7 +348,7 @@ statement
    | declarationstatement
    | attributespecifierseq? tryblock
    | valEmbedStatementBlock
-   |   {specLevel>0}? valStatement
+   | {specLevel>0}? valStatement
    ;
 
 labeledstatement

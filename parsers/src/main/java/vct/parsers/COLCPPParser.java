@@ -7,18 +7,14 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import vct.antlr4.generated.CPPParser;
 import vct.antlr4.generated.LangCPPLexer;
-import vct.antlr4.generated.PVLLexer;
-import vct.antlr4.generated.PVLParser;
 import vct.col.ast.stmt.decl.ProgramUnit;
-import vct.col.ast.syntax.PVLSyntax;
+import vct.col.ast.syntax.CSyntax;
 import vct.parsers.rewrite.FlattenVariableDeclarations;
-import vct.parsers.rewrite.PVLPostProcessor;
 import vct.parsers.rewrite.SpecificationCollector;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.util.Arrays;
 
 import static hre.lang.System.*;
 
@@ -48,16 +44,14 @@ public class COLCPPParser implements Parser {
 
 
 //            Example from the PVLParser. It is a bit of a question what post-parse processing we need
-//            I Guess it would be nice to have something like
             pu=new FlattenVariableDeclarations(pu).rewriteAll();
             Progress("Variable pass took %dms",tk.show());
-//
-//            pu=new SpecificationCollector(PVLSyntax.get(),pu).rewriteAll();
-//            Progress("Shuffling specifications took %dms",tk.show());
-//            Debug("after collecting specifications %s",pu);
-//
-//            pu=new PVLPostProcessor(pu).rewriteAll();
-//            Progress("Post processing pass took %dms",tk.show());
+
+            //TODO Create a CPPSyntax file
+            pu=new SpecificationCollector(CSyntax.getCML(),pu).rewriteAll();
+            Progress("Shuffling specifications took %dms",tk.show());
+            Debug("after collecting specifications %s",pu);
+
             return pu;
         } catch(HREExitException e) {
             throw e;
@@ -65,9 +59,9 @@ public class COLCPPParser implements Parser {
             Fail("File %s has not been found",file_name);
         } catch (Exception e) {
             DebugException(e);
-	    String message = "\n";
-            for (StackTraceElement s: e.getStackTrace()) { message += s.toString() + "\n"; }
-            Abort("Exception %s while parsing %s %s %s",e.getClass(),file_name, message, e.getMessage());
+	    StringBuilder message = new StringBuilder("\n");
+            for (StackTraceElement s: e.getStackTrace()) { message.append(s.toString()).append("\n"); }
+            Abort("Exception %s while parsing %s %s %s",e.getClass(),file_name, message.toString(), e.getMessage());
         } catch (Throwable e) {
             DebugException(e);
             Warning("Exception %s while parsing %s",e.getClass(),file_name);
