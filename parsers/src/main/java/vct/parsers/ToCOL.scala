@@ -63,7 +63,7 @@ abstract class ToCOL(fileName: String, tokens: CommonTokenStream, parser: org.an
 
   def fail(tree: ParserRuleContext, format: String, args: Object*): Nothing = {
     val message = String.format(format, args:_*)
-    fileOrigin(tree).report("error", message + "\tParserRule: " + tree.getClass.getSimpleName)
+    fileOrigin(tree).report("error", message)
     throw new HREExitException(1)
   }
 

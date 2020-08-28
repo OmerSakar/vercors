@@ -59,9 +59,7 @@ public class COLCPPParser implements Parser {
             Fail("File %s has not been found",file_name);
         } catch (Exception e) {
             DebugException(e);
-	    StringBuilder message = new StringBuilder("\n");
-            for (StackTraceElement s: e.getStackTrace()) { message.append(s.toString()).append("\n"); }
-            Abort("Exception %s while parsing %s %s %s",e.getClass(),file_name, message.toString(), e.getMessage());
+	        Abort("Exception %s while parsing %s %s",e.getClass(),file_name,e.getMessage());
         } catch (Throwable e) {
             DebugException(e);
             Warning("Exception %s while parsing %s",e.getClass(),file_name);

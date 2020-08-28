@@ -5,33 +5,29 @@
 
 //int x = 123;
 
-/*
- requires true;
- ensures 2 == 1+2-1;
- */
-//int main()
-//{
-////  int total = 0, plz = 2;
-////
-////  /*
-////    loop_invariant 0 <= i && i <= 5;
-////    loop_invariant (i>1) ==> total == \old(total) + i;
-////  */
-////  for (int i = 0; i < 5; i++) {
-////    total = total + 1;
-////  }
-//
-////  Please p;
-//
-//  //vector<double> a;
-//  std::vector<double> a;
-//
-//  // cout<<p.getK();
-//
-//  return total;
-//}
+int main()
+{
+  int total = 0, plz = 2;
 
-class Counter {
+  /*@
+    loop_invariant 0 <= i && i <= 5;
+    loop_invariant (i>1) ==> total == \old(total) + i;
+  */
+  for (int i = 0; i < 5; i++) {
+    total = total + 1;
+  }
+
+  Counter p;
+
+  //vector<double> a;
+  //std::vector<double> a;
+
+  // cout<<p.getK();
+
+  return total;
+}
+
+class Counter { //demo 1
 	int count;
 
     /*@
@@ -54,7 +50,7 @@ class Counter {
 	}
 };
 
-class Array {
+class Array { //demo 2
 
     /*@
     context_everywhere A != nullptr;
@@ -68,10 +64,25 @@ class Array {
 		loop_invariant 0 <= i && i <= A.length;
 		loop_invariant (\forall int j; 0 <= j && j < i; A[j] == 0);
         */
+        //TODO .length is not actually CPP.
+        //TODO See how we can easily support different ops on e.g. arrays
 		while (i < A.length) {
 			A[i] = 0;
 			i = i + 1;
 		}
 	}
 
+};
+
+class ArraySum { //demo 3
+	int sum;
+
+    /*@
+    context_everywhere A != nullptr;
+	context_everywhere 0 <= i && i <= A.length;
+    requires (\forall* int j; 0 <= j && j < A.length; Perm(A[j], 1\2));
+	*/
+	int /*@ pure */ sum_contrib(int A[], int i) {
+	  return (i == A.length) ? 0 : A[i] + sum_contrib(A, i + 1);
+    }
 };
