@@ -94,12 +94,12 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
   def convertInitializerclause(tree: InitializerclauseContext) = tree match {
     case Initializerclause0(assignment) => expr(assignment)
+//    case Initializerclause1(bracedinit) => {
+//
+//            create expression(OptionSome,
+//              create struct_value(tArray(tCell(addDims(baseType, 1))), null, convertBracedinitlist(bracedinit):_*))
+//    }
     case _ => ??(tree)
-    //    case Initializerclause1(bracedinit) =>
-    //
-    //    case ArrayInitializer1("{", initializers, _, "}") =>
-    //      create expression(OptionSome,
-    //        create struct_value(tArray(tCell(addDims(baseType, dims-1))), null, getArrayInitializerList(initializers, dims-1, baseType):_*))
   }
 
   def convertBracedinitlist(tree: BracedinitlistContext): Seq[ASTNode] = tree match {
@@ -118,15 +118,15 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     }
   })
 
-  def convertTemplateargumentlist(tree: TemplateargumentlistContext): Seq[Type] = origin(tree, tree match {
+  def convertTemplateargumentlist(tree: TemplateargumentlistContext): Seq[ASTNode] = origin(tree, tree match {
     // The _ here is the ... operator. I dont think we have support for this, but we can represent it as an array/seq
     case Templateargumentlist0(templarg, _) => Seq(convertTemplateargument(templarg))
     case Templateargumentlist1(templarglist, _, templarg, _) => convertTemplateargumentlist(templarglist) :+ convertTemplateargument(templarg)
   })
 
-  def convertTemplateargument(tree: TemplateargumentContext): Type = origin(tree, tree match {
+  def convertTemplateargument(tree: TemplateargumentContext): ASTNode = origin(tree, tree match {
     case Templateargument0(thetypeid) => convertThetypeid(thetypeid)
-    case Templateargument1(constantexpression) => ??(tree)
+    case Templateargument1(constantexpression) => expr(constantexpression)
     case Templateargument2(idexpr) => ??(tree)
   })
 
@@ -138,9 +138,13 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
   class DeclSpecs {
 
     sealed trait TypeSpec
+
     case class PrimitiveTypeSpec(primitive: String) extends TypeSpec
+
     case class ClassTypeSpec(clazz: ClassType) extends TypeSpec
+
     case class TypedefNameTypeSpec(name: String) extends TypeSpec
+
     case class ValTypeSpec(t: Type) extends TypeSpec
 
     // Scala magic that can be safely ignored: needed to use bags ("multisets")
@@ -215,19 +219,27 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
 
     sealed trait FuncSpec
+
     object InlineFuncSpec extends FuncSpec
+
     object VirtualFuncSpec extends FuncSpec
+
     object ExplicitFuncSpec extends FuncSpec
 
     sealed trait StorageClass
-//    object Typedef extends StorageClass
-//    object ExternSC extends StorageClass
-//    object Auto extends StorageClass
+
+    //    object Typedef extends StorageClass
+    //    object ExternSC extends StorageClass
+    //    object Auto extends StorageClass
 
     object ExternSC extends StorageClass
+
     object MutableSC extends StorageClass
+
     object StaticSC extends StorageClass
+
     object ThreadLocalSC extends StorageClass
+
     object RegisterSC extends StorageClass
 
 
@@ -239,8 +251,11 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     var valModifiers: mutable.Seq[NameExpression] = mutable.Seq()
 
     def typeSpec: Bag[TypeSpec] = Bag(_typeSpec.toSeq: _*)
+
     def funcSpec: Set[FuncSpec] = _funcSpec.toSet
+
     def decls = _decls.toSet
+
     def storageClass: Option[StorageClass] = _storageClass
 
     def add(tree: DeclspecifierseqContext): Unit = tree match {
@@ -289,9 +304,27 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
       case Trailingtypespecifier0(simptype) => add(simptype)
       case Trailingtypespecifier0(simptype) => add(simptype)
 
-      case Trailingtypespecifier1(elaboratedtypespec) => ??(tree)
+      case Trailingtypespecifier1(elaboratedtypespec) => add(elaboratedtypespec)
       case Trailingtypespecifier2(typenamespec) => ??(tree)
       case Trailingtypespecifier3(cvqual) => ??(tree)
+    }
+
+    def add(tree: ElaboratedtypespecifierContext): Unit = tree match {
+      case Elaboratedtypespecifier0(classkey, _, maybeNamespec, cppId) => {
+        _decls ++=
+          Seq(create ast_class(
+            maybeNamespec.map(convertNestednamespecifier).getOrElse(Seq()).mkString("", "_", "_") +
+              convertCppIdentifier(cppId),
+            convertClasskey(classkey),
+            Array.empty[DeclarationStatement],
+            Array.empty[ClassType],
+            Array.empty[ClassType]
+          ))
+      }
+      case Elaboratedtypespecifier1(classkey, simpletemplateid) => ??(tree)
+      case Elaboratedtypespecifier2(classkey, nestednamespec, maybeTemplate, simpletempid) => ??(tree)
+      case Elaboratedtypespecifier3(enum, maybeNestednamespec, cppId) => ??(tree)
+
     }
 
     def add(tree: SimpletypespecifierContext): Unit = tree match {
@@ -302,12 +335,12 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
           case Some(namespace) => convertNestednamespecifier(namespace).mkString("", "_", "_")
         }
 
-        _typeSpec += ClassTypeSpec(create.class_type(namespace + tmpClassType.getName, tmpClassType.params:_*))
+        _typeSpec += ClassTypeSpec(create.class_type(namespace + tmpClassType.getName, tmpClassType.params: _*))
       }
       case Simpletypespecifier1(_, _, _) => ??(tree)
       case Simpletypespecifier2(char) => _typeSpec += PrimitiveTypeSpec(char)
-      case Simpletypespecifier3(char16_t) => ??(tree)
-      case Simpletypespecifier4(char32_t) => ??(tree)
+      case Simpletypespecifier3(char16_t) => _typeSpec += PrimitiveTypeSpec("char") //UTF-16
+      case Simpletypespecifier4(char32_t) => _typeSpec += PrimitiveTypeSpec("char") //UTF-32
       case Simpletypespecifier5(wchar_t) => ??(tree)
       case Simpletypespecifier6(booltype) => _typeSpec += PrimitiveTypeSpec(booltype)
       case Simpletypespecifier7(shorttype) => _typeSpec += PrimitiveTypeSpec(shorttype)
@@ -329,9 +362,8 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     }
 
 
-
     def getType: Either[String, Type] = {
-      if(typeSpec.size == 1) {
+      if (typeSpec.size == 1) {
         typeSpec.head match {
           case ValTypeSpec(t) => return Right(t)
           case ClassTypeSpec(t) => return Right(t)
@@ -380,7 +412,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
   def convertPtrdeclarator(tree: PtrdeclaratorContext): String = tree match {
     case Ptrdeclarator0(noptr) => convertNoptrdeclarator(noptr)
-    case Ptrdeclarator1(ptrop, ptrdecl) => ??(tree)
+    case Ptrdeclarator1(ptrop, ptrdecl) => convertPtrdeclarator(ptrdecl)
   }
 
 
@@ -388,7 +420,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Noptrdeclarator0(id, _) => convertDeclaratorid(id).name
     case Noptrdeclarator1(noptr, _) => convertNoptrdeclarator(noptr)
     case Noptrdeclarator2(noptrdeclarator, "[", _, "]", _) => convertNoptrdeclarator(noptrdeclarator)
-    case Noptrdeclarator3(_, ptrdecl, _) => ??(tree)
+    //case Noptrdeclarator3(_, ptrdecl, _) => ??(tree)
   }
 
 
@@ -408,7 +440,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
   def convertQualifiedid(tree: QualifiedidContext) = origin(tree, tree match {
     case Qualifiedid0(nestednamespec, maybeTemplate, unqualid) => {
-      create unresolved_name  (
+      create unresolved_name (
         convertNestednamespecifier(nestednamespec).mkString("", "_", "_") +
           convertUnqualifiedid(unqualid)
         )
@@ -440,7 +472,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
    * ///////////////// Types //////////////////
    * //////////////////////////////////////////
    */
-    //TODO remove this
+  //TODO remove this
   def convertTypespecifier(tree: LangTypeContext): Type = tree match {
     case LangType0(t) => {
       val specs = new DeclSpecs
@@ -479,15 +511,28 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Usingdirective0(maybeAttrspecseq, _, _, maybeNestednamespec, namespacename, _) => {
       val ns = maybeNestednamespec.map(convertNestednamespecifier).getOrElse(Seq()) :+
         convertNamespacename(namespacename)
-      create namespace(ns:_*)
+      create namespace (ns: _*)
     }
   }
 
 
   def convertDeclaratorType(decl: PtrdeclaratorContext): (Type => Type) = decl match {
     case Ptrdeclarator0(noptrdecl) => convertDeclaratorType(noptrdecl)
-    //TODO below
-    case Ptrdeclarator1(ptrop, ptrdecl) => convertDeclaratorType(ptrdecl)
+    case Ptrdeclarator1(ptrop, ptrdecl) =>
+      //TODO the lambda below might be incorrect.
+      t => (convertDeclaratorType(ptrdecl)(convertPtroperator(ptrop)(t)))
+  }
+
+
+  def convertPtroperator(tree: PtroperatorContext): (Type => Type) = tree match {
+    case Ptroperator0("*", maybeAttrspecseq, maybeCvqual) => {
+      failIfDefined(maybeCvqual, "Qualifiers to pointers such as const are not supported")
+      (t => create primitive_type(PrimitiveSort.Pointer, t))
+    }
+    case Ptroperator1("&", maybeAttrspecseq) => ??(tree)
+    case Ptroperator2("&&", maybeAttrspecseq) => ??(tree)
+    case Ptroperator3(_, _, _, _) => ??(tree)
+
   }
 
   def convertDeclaratorType(decl: NoptrdeclaratorContext): (Type => Type) = decl match {
@@ -498,11 +543,13 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
       failIfDefined(maybeConstExpr, "Qualifiers in array dimensions are unsupported")
       (t => convertDeclaratorType(noptrdecl)(addDims(t, 1)))
     }
-    case Noptrdeclarator3("(", ptrdecl, ")") => ??(ptrdecl)
+    //case Noptrdeclarator3("(", ptrdecl, ")") => ??(ptrdecl)
   }
 
   def tCell(t: Type) = create.primitive_type(PrimitiveSort.Cell, t)
+
   def tArray(t: Type) = create.primitive_type(PrimitiveSort.Array, t)
+
   def tOpt(t: Type) = create.primitive_type(PrimitiveSort.Option, t)
 
 
@@ -519,7 +566,6 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
     tOpt(result)
   }
-
 
 
   /**
@@ -739,7 +785,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Assignmentexpression1(logicalor, assignop, initclause) => {
       assignop match {
         case Assignmentoperator0("=") =>
-          //TODO check if the other assignmentoperators are available
+        //TODO check if the other assignmentoperators are available
         case _ => ??(tree)
       }
       create assignment(
@@ -759,6 +805,7 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
     case Logicalandexpression0(inclusiveorexpr) => expr(inclusiveorexpr)
     case Logicalandexpression1(lft, _, rght) => create expression(StandardOperator.And, expr(lft), expr(rght))
+    case Logicalandexpression2(lft, _, rght) => create expression(StandardOperator.Star, expr(lft), expr(rght))
 
     case Inclusiveorexpression0(exclexpr) => expr(exclexpr)
     case Inclusiveorexpression1(lft, "|", rght) => create expression(StandardOperator.BitOr, expr(lft), expr(rght))
@@ -862,20 +909,20 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Postfixexpression13(postexpr, "--") => create expression(PostDecr, expr(postexpr))
     //Other cases ommited
 
-//    case Postfixexpression2(postfixexpr, "[", bracedinitlist, "]") => ??(tree)
-//    case Postfixexpression4(simpletypespec, "(", maybeExprlist, ")") => ??(tree)
-//    case Postfixexpression5(typenamespec, "(", maybeExprlist, ")") => ??(tree)
-//    case Postfixexpression6(simpletypespec, bracedinitlist,) => ??(tree)
-//    case Postfixexpression7(typenamespec, bracedinitlist,) => ??(tree)
-//    case Postfixexpression9(postfixexpr, "->", maybeTemplate, idexpr) => ??(tree)
-//    case Postfixexpression10(postfixexpr, ".", pseudodestructorname) => ??(tree)
-//    case Postfixexpression11(postfixexpr, "->", pseudodestructorname) => ??(tree)
-//    case Postfixexpression14(dynamic_cast, "<", thetypeid, ">", "(", expression, ")") => ??(tree)
-//    case Postfixexpression15(static_cast, "<", thetypeid, ">", "(", expression, ")") => ??(tree)
-//    case Postfixexpression16(reinterpret_cast, "<", thetypeid, ">", "(", expression, ")") => ??(tree)
-//    case Postfixexpression17(const_cast, "<", thetypeid, ">", "(", expression, ")") =>  ??(tree)
-//    case Postfixexpression18(typeidofthetypeid, "(", expression, ")") =>  ??(tree)
-//    case Postfixexpression19(typeidofthetypeid, "(", thetypeid, ")") => ??(tree)
+    //    case Postfixexpression2(postfixexpr, "[", bracedinitlist, "]") => ??(tree)
+    //    case Postfixexpression4(simpletypespec, "(", maybeExprlist, ")") => ??(tree)
+    //    case Postfixexpression5(typenamespec, "(", maybeExprlist, ")") => ??(tree)
+    //    case Postfixexpression6(simpletypespec, bracedinitlist,) => ??(tree)
+    //    case Postfixexpression7(typenamespec, bracedinitlist,) => ??(tree)
+    //    case Postfixexpression9(postfixexpr, "->", maybeTemplate, idexpr) => ??(tree)
+    //    case Postfixexpression10(postfixexpr, ".", pseudodestructorname) => ??(tree)
+    //    case Postfixexpression11(postfixexpr, "->", pseudodestructorname) => ??(tree)
+    //    case Postfixexpression14(dynamic_cast, "<", thetypeid, ">", "(", expression, ")") => ??(tree)
+    //    case Postfixexpression15(static_cast, "<", thetypeid, ">", "(", expression, ")") => ??(tree)
+    //    case Postfixexpression16(reinterpret_cast, "<", thetypeid, ">", "(", expression, ")") => ??(tree)
+    //    case Postfixexpression17(const_cast, "<", thetypeid, ">", "(", expression, ")") =>  ??(tree)
+    //    case Postfixexpression18(typeidofthetypeid, "(", expression, ")") =>  ??(tree)
+    //    case Postfixexpression19(typeidofthetypeid, "(", thetypeid, ")") => ??(tree)
 
     case Primaryexpression0(literalexpr) => expr(literalexpr)
     case Primaryexpression1(_) => create reserved_name ASTReserved.This
@@ -911,12 +958,12 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
 
   def convertStatement(tree: ParserRuleContext): ASTNode = origin(tree, tree match {
     case Statement0(labeledStmnt) => convertStatement(labeledStmnt)
-    case Statement1(_, exprStmnt) => convertStatement(exprStmnt)
-    case Statement2(_, compoundStmnt) => convertStatement(compoundStmnt)
-    case Statement3(_, selectionStmnt) => convertStatement(selectionStmnt)
-    case Statement4(_, iterationStmnt) => convertStatement(iterationStmnt)
-    case Statement5(_, jumpStmnt) => convertStatement(jumpStmnt)
-    case Statement6(declStmnt) => convertDeclarationstatement(declStmnt)
+    case Statement1(declStmnt) => convertDeclarationstatement(declStmnt)
+    case Statement2(_, exprStmnt) => convertStatement(exprStmnt)
+    case Statement3(_, compoundStmnt) => convertStatement(compoundStmnt)
+    case Statement4(_, selectionStmnt) => convertStatement(selectionStmnt)
+    case Statement5(_, iterationStmnt) => convertStatement(iterationStmnt)
+    case Statement6(_, jumpStmnt) => convertStatement(jumpStmnt)
     case Statement7(_, tryblock) => convertStatement(tryblock)
     case Statement8(valstmnt) => create block (convertValStat(valstmnt): _*)
     case Statement9(valstmnt) => convertValStat(valstmnt)
@@ -959,13 +1006,13 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
     case Jumpstatement1("continue", ";") => create special ASTSpecial.Kind.Continue
     case Jumpstatement2("return", None, ";") => create return_statement()
     case Jumpstatement2("return", Some(returnexpr), ";") => create return_statement (expr(returnexpr))
-    case Jumpstatement3("return", binitList, ";") => create return_statement(convertBracedinitlist(binitList):_*)
-    case Jumpstatement4("goto", cppId, ";") => create special(ASTSpecial.Kind.Goto, create label(convertCppIdentifier(cppId).name))
+    case Jumpstatement3("return", binitList, ";") => create return_statement (convertBracedinitlist(binitList): _*)
+    case Jumpstatement4("goto", cppId, ";") => create special(ASTSpecial.Kind.Goto, create label (convertCppIdentifier(cppId).name))
 
     case Forinitstatement0(exprStat) => convertStatement(exprStat)
     case Forinitstatement1(simpleDecl) => convertStatement(simpleDecl)
 
-    case Simpledeclaration0(maybeContract, Some(declSpecSeq), Some(initDeclList), _) => {
+    case Simpledeclaration0(maybeContract, declSpecSeq, Some(initDeclList), _) => {
       // TODO find out what the contract here is
       val specs = new DeclSpecs
       specs.add(declSpecSeq)
@@ -977,20 +1024,38 @@ case class CPPtoCOL(fileName: String, tokens: CommonTokenStream, parser: CPPPars
       }
       result
     }
-    case Simpledeclaration0(maybeContract, maybeDecl, _, _) => {
-      maybeDecl match {
-        //TODO how do we combine these declspecs?
-        case Some(decl) => {
+ /*   case Simpledeclaration0(maybeContract, Some(declSpecSeq), Some(initDeclList), _) => {
+      // TODO find out what the contract here is
+      val specs = new DeclSpecs
+      specs.add(declSpecSeq)
+      val typeofVar = getOrFail(declSpecSeq, specs.getType)
+      val result = new VariableDeclaration(typeofVar)
+      convertInitdeclaratorlist(initDeclList).foreach {
+        case (name, init) =>
+          result.add(DeclarationStatement(name, VariableDeclaration.common_type, init))
+      }
+      result
+    }*/
+    case Simpledeclaration0(maybeContract, declSpec, _, _) => {
           val specs = new DeclSpecs
-          specs.add(decl)
+          specs.add(declSpec)
+          if (specs.decls.isEmpty) {
+            fail(tree, "Expected an ASTDeclaration.")
+          }
+          specs.decls.head
+      }
+      /*maybeDeclSpec match {
+        case None => new BlockStatement
+        case Some(declSpec) => {
+          val specs = new DeclSpecs
+          specs.add(declSpec)
           if (specs.decls.isEmpty) {
             fail(tree, "Expected an ASTDeclaration.")
           }
           specs.decls.head
         }
-        case None => new BlockStatement()
       }
-    }
+    }*/
     case Simpledeclaration1(maybeContract, attrSpecSeq, maybeDecl, _, _) => ??(tree)
   })
 

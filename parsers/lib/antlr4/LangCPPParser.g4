@@ -291,13 +291,12 @@ inclusiveorexpression
 logicalandexpression
    : inclusiveorexpression
    | logicalandexpression AndAnd inclusiveorexpression
-//   | logicalandexpression 'and' inclusiveorexpression
+   | logicalandexpression valAndOp inclusiveorexpression
    ;
 
 logicalorexpression
    : logicalandexpression
    | logicalorexpression OrOr logicalandexpression
-//   | logicalorexpression 'or' logicalandexpression
    ;
 
 conditionalexpression
@@ -329,7 +328,7 @@ assignmentoperator
 
 expression
    : assignmentexpression
-   //| expression ',' assignmentexpression
+   | expression ',' assignmentexpression
    ;
 
 constantexpression
@@ -337,15 +336,20 @@ constantexpression
    ;
 /*Statements*/
 
-
+/**
+    In the `statement` rule below, the case for `declarationstatement` has been
+    moved from between the `jumpstatement` and `tryblock` cases. This is to prevent
+    ambiguity (e.g. class types and the comma operator, the pointer * and the
+    multiplication *).
+*/
 statement
    : labeledstatement
+   | declarationstatement
    | attributespecifierseq? expressionstatement
    | attributespecifierseq? compoundstatement
    | attributespecifierseq? selectionstatement
    | attributespecifierseq? iterationstatement
    | attributespecifierseq? jumpstatement
-   | declarationstatement
    | attributespecifierseq? tryblock
    | valEmbedStatementBlock
    | {specLevel>0}? valStatement
@@ -450,7 +454,7 @@ aliasdeclaration
    ;
 
 simpledeclaration
-   : valEmbedContract? declspecifierseq? initdeclaratorlist? ';'
+   : valEmbedContract? declspecifierseq initdeclaratorlist? ';'
    | valEmbedContract? attributespecifierseq declspecifierseq? initdeclaratorlist ';'
    ;
 
@@ -754,7 +758,7 @@ noptrdeclarator
    : declaratorid attributespecifierseq?
    | noptrdeclarator parametersandqualifiers
    | noptrdeclarator '[' constantexpression? ']' attributespecifierseq?
-   | '(' ptrdeclarator ')'
+   //| '(' ptrdeclarator ')'
    ;
 
 parametersandqualifiers

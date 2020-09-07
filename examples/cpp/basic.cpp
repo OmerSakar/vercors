@@ -17,7 +17,7 @@ int main()
     total = total + 1;
   }
 
-  Counter p;
+  //Counter* p;
 
   //vector<double> a;
   //std::vector<double> a;
@@ -59,7 +59,7 @@ class Array { //demo 2
 	*/
 	void clear(int A[]) {
 		int i = 0;
-
+        //string* ptr = &food;
         /*@
 		loop_invariant 0 <= i && i <= A.length;
 		loop_invariant (\forall int j; 0 <= j && j < i; A[j] == 0);
