@@ -35,26 +35,27 @@ public class COLCPPParser implements Parser {
             CPPParser parser = new CPPParser(tokens);
             parser.removeErrorListeners();
             parser.addErrorListener(ec);
-            CPPParser.TranslationunitContext tree = parser.translationunit();
+            CPPParser.TranslationUnitContext tree = parser.translationUnit();
             Progress("parsing pass took %dms",tk.show());
             ec.report();
             Debug("parser got: %s",tree.toStringTree(parser));
 
-            ProgramUnit pu = CPPtoCOL.convert(tree,file_name,tokens,parser);
-            Progress("AST conversion pass took %dms",tk.show());
-
-            pu=new FlattenVariableDeclarations(pu).rewriteAll();
-            Progress("Variable pass took %dms",tk.show());
-
-            //TODO Create a CPPSyntax file
-            pu=new SpecificationCollector(CSyntax.getCML(),pu).rewriteAll();
-            Progress("Shuffling specifications took %dms",tk.show());
-            Debug("after collecting specifications %s",pu);
-
-            pu=new CPPPostProcessor(pu).rewriteAll();
-            Progress("Post processing took %dms",tk.show());
-
-            return pu;
+//            ProgramUnit pu = CPPtoCOL.convert(tree,file_name,tokens,parser);
+//            Progress("AST conversion pass took %dms",tk.show());
+//
+//            pu=new FlattenVariableDeclarations(pu).rewriteAll();
+//            Progress("Variable pass took %dms",tk.show());
+//
+//            //TODO Create a CPPSyntax file
+//            pu=new SpecificationCollector(CSyntax.getCML(),pu).rewriteAll();
+//            Progress("Shuffling specifications took %dms",tk.show());
+//            Debug("after collecting specifications %s",pu);
+//
+//            pu=new CPPPostProcessor(pu).rewriteAll();
+//            Progress("Post processing took %dms",tk.show());
+//
+//            return pu;
+            return null;
         } catch(HREExitException e) {
             throw e;
         } catch (FileNotFoundException e) {

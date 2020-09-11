@@ -1,5 +1,4 @@
 lexer grammar LangCPPLexer;
-import SpecLexer;
 
 @lexer::members {
     private static boolean inBlockSpec = false;
@@ -9,389 +8,319 @@ VAL_INLINE: EOF EOF;
 VAL_ASSERT: 'assert';
 
 Placeholder : EOF EOF ;
-/*Preprocessing directives*/
 
+Literal:
+	IntegerLiteral
+	| CharacterLiteral
+	| FloatingLiteral
+	| StringLiteral
+	| BooleanLiteral
+	| PointerLiteral
+	| UserDefinedLiteral;
 
-MultiLineMacro : '#' (~ [\n]*? '\\' '\r'? '\n')+ ~ [\n]+ -> channel (HIDDEN);
-Directive : '#' ~ [\n]* -> channel (HIDDEN);/*Lexer*/
+MultiLineMacro:
+	'#' (~[\n]*? '\\' '\r'? '\n')+ ~ [\n]+ -> channel (HIDDEN);
 
+Directive: '#' ~ [\n]* -> channel (HIDDEN);
 /*Keywords*/
 
-
-Alignas : 'alignas';
-Alignof : 'alignof';
-Asm : 'asm';
-Auto : 'auto';
-//Bool : 'bool';
-Break : 'break';
-Case : 'case';
-Catch : 'catch';
-Char : 'char';
-Char16 : 'char16_t';
-Char32 : 'char32_t';
-Class : 'class';
-Const : 'const';
-Constexpr : 'constexpr';
-Const_cast : 'const_cast';
-Continue : 'continue';
-Decltype : 'decltype';
-Default : 'default';
-Delete : 'delete';
-Do : 'do';
-Double : 'double';
-Dynamic_cast : 'dynamic_cast';
-Else : 'else';
-Enum : 'enum';
-Explicit : 'explicit';
-Export : 'export';
-Extern : 'extern';
-False : 'false';
-Final : 'final';
-Float : 'float';
-For : 'for';
-Friend : 'friend';
-Goto : 'goto';
-If : 'if';
-Inline : 'inline';
-Int : 'int';
-Long : 'long';
-Mutable : 'mutable';
-Namespace : 'namespace';
-New : 'new';
-Noexcept : 'noexcept';
-Nullptr : 'nullptr';
-Operator : 'operator';
-Override : 'override';
-Private : 'private';
-Protected : 'protected';
-Public : 'public';
-Register : 'register';
-Reinterpret_cast : 'reinterpret_cast';
-Return : 'return';
-Short : 'short';
-Signed : 'signed';
-Sizeof : 'sizeof';
-Static : 'static';
-Static_assert : 'static_assert';
-Static_cast : 'static_cast';
-Struct : 'struct';
-Switch : 'switch';
-Template : 'template';
-This : 'this';
-//Thread_local : 'thread_local';
-Throw : 'throw';
-True : 'true';
-Try : 'try';
-Typedef : 'typedef';
-Typeid_ : 'typeid';
-Typename_ : 'typename';
-Union : 'union';
-Unsigned : 'unsigned';
-Using : 'using';
-Virtual : 'virtual';
-Void : 'void';
-Volatile : 'volatile';
-Wchar : 'wchar_t';
-While : 'while';
-
+Alignas: 'alignas';
+Alignof: 'alignof';
+Asm: 'asm';
+Auto: 'auto';
+Bool: 'bool';
+Break: 'break';
+Case: 'case';
+Catch: 'catch';
+Char: 'char';
+Char16: 'char16_t';
+Char32: 'char32_t';
+Class: 'class';
+Const: 'const';
+Constexpr: 'constexpr';
+Const_cast: 'const_cast';
+Continue: 'continue';
+Decltype: 'decltype';
+Default: 'default';
+Delete: 'delete';
+Do: 'do';
+Double: 'double';
+Dynamic_cast: 'dynamic_cast';
+Else: 'else';
+Enum: 'enum';
+Explicit: 'explicit';
+Export: 'export';
+Extern: 'extern';
+//DO NOT RENAME - PYTHON NEEDS True and False
+False_: 'false';
+Final: 'final';
+Float: 'float';
+For: 'for';
+Friend: 'friend';
+Goto: 'goto';
+If: 'if';
+Inline: 'inline';
+Int: 'int';
+Long: 'long';
+Mutable: 'mutable';
+Namespace: 'namespace';
+New: 'new';
+Noexcept: 'noexcept';
+Nullptr: 'nullptr';
+Operator: 'operator';
+Override: 'override';
+Private: 'private';
+Protected: 'protected';
+Public: 'public';
+Register: 'register';
+Reinterpret_cast: 'reinterpret_cast';
+Return: 'return';
+Short: 'short';
+Signed: 'signed';
+Sizeof: 'sizeof';
+Static: 'static';
+Static_assert: 'static_assert';
+Static_cast: 'static_cast';
+Struct: 'struct';
+Switch: 'switch';
+Template: 'template';
+This: 'this';
+Thread_local: 'thread_local';
+Throw: 'throw';
+//DO NOT RENAME - PYTHON NEEDS True and False
+True_: 'true';
+Try: 'try';
+Typedef: 'typedef';
+Typeid_: 'typeid';
+Typename_: 'typename';
+Union: 'union';
+Unsigned: 'unsigned';
+Using: 'using';
+Virtual: 'virtual';
+Void: 'void';
+Volatile: 'volatile';
+Wchar: 'wchar_t';
+While: 'while';
 /*Operators*/
-LeftParen : '(';
-RightParen : ')';
-LeftBracket : '[';
-RightBracket : ']';
-LeftBrace : '{';
-RightBrace : '}';
-Plus : '+';
-Minus : '-';
-Star : '*';
-Div : '/';
-Mod : '%';
-Caret : '^';
-And : '&';
-Or : '|';
-Tilde : '~';
-Not : NotSymbol | NotWord;
-NotSymbol : '!';
-NotWord : 'not';
-Assign : '=';
-Less : '<';
-Greater : '>';
-PlusAssign : '+=';
-MinusAssign : '-=';
-StarAssign : '*=';
-DivAssign : '/=';
-ModAssign : '%=';
-XorAssign : '^=';
-AndAssign : '&=';
-OrAssign : '|=';
-LeftShift : '<<';
-RightShift : '>>';
-LeftShiftAssign : '<<=';
-RightShiftAssign : '>>=';
-Equal : '==';
-NotEqual : '!=';
-LessEqual : '<=';
-GreaterEqual : '>=';
-AndAnd : AndAndSymbol | AndAndWord;
-AndAndSymbol : '&&';
-AndAndWord : 'and';
-OrOr : OrOrSymbol | OrOrWord;
-OrOrSymbol : '||';
-OrOrWord : 'or';
-PlusPlus : '++';
-MinusMinus : '--';
-Comma : ',';
-ArrowStar : '->*';
-Arrow : '->';
-Question : '?';
-Colon : ':';
-Doublecolon : '::';
-Semi : ';';
-Dot : '.';
-DotStar : '.*';
-Ellipsis : '...';
 
-/*Lexer*/
-fragment Hexquad
-   : HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT
-   ;
+LeftParen: '(';
+RightParen: ')';
+LeftBracket: '[';
+RightBracket: ']';
+LeftBrace: '{';
+RightBrace: '}';
+Plus: '+';
+Minus: '-';
+Star: '*';
+Div: '/';
+Mod: '%';
+Caret: '^';
+And: '&';
+Or: '|';
+Tilde: '~';
+Not: '!' | 'not';
+Assign: '=';
+Less: '<';
+Greater: '>';
+PlusAssign: '+=';
+MinusAssign: '-=';
+StarAssign: '*=';
+DivAssign: '/=';
+ModAssign: '%=';
+XorAssign: '^=';
+AndAssign: '&=';
+OrAssign: '|=';
+LeftShift: '<<';
+RightShift: '>>';
+LeftShiftAssign: '<<=';
+RightShiftAssign: '>>=';
+Equal: '==';
+NotEqual: '!=';
+LessEqual: '<=';
+GreaterEqual: '>=';
+AndAnd: '&&' | 'and';
+OrOr: '||' | 'or';
+PlusPlus: '++';
+MinusMinus: '--';
+Comma: ',';
+ArrowStar: '->*';
+Arrow: '->';
+Question: '?';
+Colon: ':';
+Doublecolon: '::';
+Semi: ';';
+Dot: '.';
+DotStar: '.*';
+Ellipsis: '...';
 
-fragment Universalcharactername
-   : '\\u' Hexquad
-   | '\\U' Hexquad Hexquad
-   ;
+fragment Hexquad:
+	HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT HEXADECIMALDIGIT;
 
-fragment Identifiernondigit
-   : NONDIGIT
-   | Universalcharactername
-   ;
+fragment Universalcharactername:
+	'\\u' Hexquad
+	| '\\U' Hexquad Hexquad;
 
-fragment NONDIGIT
-   : [a-zA-Z_]
-   ;
+//Identifier:
+//	/*
+//	 Identifiernondigit | Identifier Identifiernondigit | Identifier DIGIT
+//	 */
+//	Identifiernondigit (Identifiernondigit | DIGIT)*;
 
-fragment DIGIT
-   : [0-9]
-   ;
+fragment Identifiernondigit: NONDIGIT | Universalcharactername;
 
+fragment NONDIGIT: [a-zA-Z_];
 
-Integerliteral
-   : Decimalliteral Integersuffix?
-   | Octalliteral Integersuffix?
-   | Hexadecimalliteral Integersuffix?
-   | Binaryliteral Integersuffix?
-   ;
+fragment DIGIT: [0-9];
 
-Decimalliteral
-   : NONZERODIGIT ('\''? DIGIT)*
-   ;
+IntegerLiteral:
+	DecimalLiteral Integersuffix?
+	| OctalLiteral Integersuffix?
+	| HexadecimalLiteral Integersuffix?
+	| BinaryLiteral Integersuffix?;
 
-Octalliteral
-   : '0' ('\''? OCTALDIGIT)*
-   ;
+DecimalLiteral: NONZERODIGIT ('\''? DIGIT)*;
 
-Hexadecimalliteral
-   : ('0x' | '0X') HEXADECIMALDIGIT ('\''? HEXADECIMALDIGIT)*
-   ;
+OctalLiteral: '0' ('\''? OCTALDIGIT)*;
 
-Binaryliteral
-   : ('0b' | '0B') BINARYDIGIT ('\''? BINARYDIGIT)*
-   ;
+HexadecimalLiteral: ('0x' | '0X') HEXADECIMALDIGIT (
+		'\''? HEXADECIMALDIGIT
+	)*;
 
-fragment NONZERODIGIT
-   : [1-9]
-   ;
+BinaryLiteral: ('0b' | '0B') BINARYDIGIT ('\''? BINARYDIGIT)*;
 
-fragment OCTALDIGIT
-   : [0-7]
-   ;
+fragment NONZERODIGIT: [1-9];
 
-fragment HEXADECIMALDIGIT
-   : [0-9a-fA-F]
-   ;
+fragment OCTALDIGIT: [0-7];
 
-fragment BINARYDIGIT
-   : [01]
-   ;
+fragment HEXADECIMALDIGIT: [0-9a-fA-F];
 
-Integersuffix
-   : Unsignedsuffix Longsuffix?
-   | Unsignedsuffix Longlongsuffix?
-   | Longsuffix Unsignedsuffix?
-   | Longlongsuffix Unsignedsuffix?
-   ;
+fragment BINARYDIGIT: [01];
 
-fragment Unsignedsuffix
-   : [uU]
-   ;
+Integersuffix:
+	Unsignedsuffix Longsuffix?
+	| Unsignedsuffix Longlongsuffix?
+	| Longsuffix Unsignedsuffix?
+	| Longlongsuffix Unsignedsuffix?;
 
-fragment Longsuffix
-   : [lL]
-   ;
+fragment Unsignedsuffix: [uU];
 
-fragment Longlongsuffix
-   : 'll'
-   | 'LL'
-   ;
+fragment Longsuffix: [lL];
 
-Characterliteral
-   : '\'' Cchar+ '\''
-   | 'u' '\'' Cchar+ '\''
-   | 'U' '\'' Cchar+ '\''
-   | 'L' '\'' Cchar+ '\''
-   ;
+fragment Longlongsuffix: 'll' | 'LL';
 
-fragment Cchar
-   : ~ ['\\\r\n]
-   | Escapesequence
-   | Universalcharactername
-   ;
+CharacterLiteral:
+	'\'' Cchar+ '\''
+	| 'u' '\'' Cchar+ '\''
+	| 'U' '\'' Cchar+ '\''
+	| 'L' '\'' Cchar+ '\'';
 
-fragment Escapesequence
-   : Simpleescapesequence
-   | Octalescapesequence
-   | Hexadecimalescapesequence
-   ;
+fragment Cchar:
+	~ ['\\\r\n]
+	| Escapesequence
+	| Universalcharactername;
 
-fragment Simpleescapesequence
-   : '\\\''
-   | '\\"'
-   | '\\?'
-   | '\\\\'
-   | '\\a'
-   | '\\b'
-   | '\\f'
-   | '\\n'
-   | '\\r'
-   | '\\t'
-   | '\\v'
-   ;
+fragment Escapesequence:
+	Simpleescapesequence
+	| Octalescapesequence
+	| Hexadecimalescapesequence;
 
-fragment Octalescapesequence
-   : '\\' OCTALDIGIT
-   | '\\' OCTALDIGIT OCTALDIGIT
-   | '\\' OCTALDIGIT OCTALDIGIT OCTALDIGIT
-   ;
+fragment Simpleescapesequence:
+	'\\\''
+	| '\\"'
+	| '\\?'
+	| '\\\\'
+	| '\\a'
+	| '\\b'
+	| '\\f'
+	| '\\n'
+	| '\\r'
+	| '\\t'
+	| '\\v';
 
-fragment Hexadecimalescapesequence
-   : '\\x' HEXADECIMALDIGIT+
-   ;
+fragment Octalescapesequence:
+	'\\' OCTALDIGIT
+	| '\\' OCTALDIGIT OCTALDIGIT
+	| '\\' OCTALDIGIT OCTALDIGIT OCTALDIGIT;
 
-Floatingliteral
-   : Fractionalconstant Exponentpart? Floatingsuffix?
-   | Digitsequence Exponentpart Floatingsuffix?
-   ;
+fragment Hexadecimalescapesequence: '\\x' HEXADECIMALDIGIT+;
 
-fragment Fractionalconstant
-   : Digitsequence? '.' Digitsequence
-   | Digitsequence '.'
-   ;
+FloatingLiteral:
+	Fractionalconstant Exponentpart? Floatingsuffix?
+	| Digitsequence Exponentpart Floatingsuffix?;
 
-fragment Exponentpart
-   : 'e' SIGN? Digitsequence
-   | 'E' SIGN? Digitsequence
-   ;
+fragment Fractionalconstant:
+	Digitsequence? '.' Digitsequence
+	| Digitsequence '.';
 
-fragment SIGN
-   : [+-]
-   ;
+fragment Exponentpart:
+	'e' SIGN? Digitsequence
+	| 'E' SIGN? Digitsequence;
 
-fragment Digitsequence
-   : DIGIT ('\''? DIGIT)*
-   ;
+fragment SIGN: [+-];
 
-fragment Floatingsuffix
-   : [flFL]
-   ;
+fragment Digitsequence: DIGIT ('\''? DIGIT)*;
 
-Stringliteral
-   : Encodingprefix? '"' Schar* '"'
-   | Encodingprefix? 'R' Rawstring
-   ;
+fragment Floatingsuffix: [flFL];
 
-fragment Encodingprefix
-   : 'u8'
-   | 'u'
-   | 'U'
-   | 'L'
-   ;
+StringLiteral:
+	Encodingprefix? '"' Schar* '"'
+	| Encodingprefix? 'R' Rawstring;
+fragment Encodingprefix: 'u8' | 'u' | 'U' | 'L';
 
-fragment Schar
-   : ~ ["\\\r\n]
-   | Escapesequence
-   | Universalcharactername
-   ;
+fragment Schar:
+	~ ["\\\r\n]
+	| Escapesequence
+	| Universalcharactername;
 
-fragment Rawstring
-   : '"' .*? '(' .*? ')' .*? '"'
-   ;
+fragment Rawstring: '"' .*? '(' .*? ')' .*? '"';
 
+BooleanLiteral: False_ | True_;
 
-Userdefinedintegerliteral
-   : Decimalliteral Udsuffix
-   | Octalliteral Udsuffix
-   | Hexadecimalliteral Udsuffix
-   | Binaryliteral Udsuffix
-   ;
+PointerLiteral: Nullptr;
 
-Userdefinedfloatingliteral
-   : Fractionalconstant Exponentpart? Udsuffix
-   | Digitsequence Exponentpart Udsuffix
-   ;
+UserDefinedLiteral:
+	UserDefinedIntegerLiteral
+	| UserDefinedFloatingLiteral
+	| UserDefinedStringLiteral
+	| UserDefinedCharacterLiteral;
 
-Userdefinedstringliteral
-   : Stringliteral Udsuffix
-   ;
+UserDefinedIntegerLiteral:
+	DecimalLiteral Udsuffix
+	| OctalLiteral Udsuffix
+	| HexadecimalLiteral Udsuffix
+	| BinaryLiteral Udsuffix;
 
-Userdefinedcharacterliteral
-   : Characterliteral Udsuffix
-   ;
+UserDefinedFloatingLiteral:
+	Fractionalconstant Exponentpart? Udsuffix
+	| Digitsequence Exponentpart Udsuffix;
 
-fragment Udsuffix
-   : Identifier
-   ;
+UserDefinedStringLiteral: StringLiteral Udsuffix;
 
-Whitespace
-   : [ \t]+ -> skip
-   ;
+UserDefinedCharacterLiteral: CharacterLiteral Udsuffix;
 
-Newline
-   : ('\r' '\n'? | '\n') -> skip
-   ;
+fragment Udsuffix: Identifier;
 
-//BlockComment
-//   : '/*' .*? '*/' -> skip
-//   ;
+Whitespace: [ \t]+ -> skip;
+
+Newline: ('\r' '\n'? | '\n') -> skip;
+
+//BlockComment: '/*' .*? '*/' -> skip;
 //
-//LineComment
-//   : '//' ~ [\r\n]* -> skip
-//   ;
+//LineComment: '//' ~ [\r\n]* -> skip;
 
-//
-// Additional symbols not defined in the lexical specification
-//
-
-//
-// Whitespace and comments
-//
 
 FileName : '"' ~[\r\n"]* '"' ;
-
 EndSpec
     : {inBlockSpec}? '@'? '*/' {inBlockSpec = false;}
     | {inLineSpec}? ('\n'|'\r\n') {inLineSpec = false;}
     ;
-
 LineCommentStartInSpec: {inLineSpec}? '//' {inLineSpec=false;} -> mode(LINE_COMMENT);
-
 BlockStartSpecImmediate: '/*' [ \t\u000C]* '@' {inBlockSpec = true;};
 BlockCommentStart: '/*' -> mode(COMMENT), skip;
 LineCommentStart: '//' -> mode(LINE_COMMENT), skip;
-
 EmbeddedLatex
     : '#' ~[\r\n]* '#' -> skip
     ;
-
 /* This is the mode we are already in, but it serves as a workaround for the ANTLR import order. All rules in this file
  * will have precedence over the imported rules, so any reserved keywords would never be lexed, because Identifier
  * appears first. However, tokens with an explicit mode always appear after all other rules, so by explicitly setting
@@ -407,21 +336,16 @@ Identifier
    */
    Identifiernondigit (Identifiernondigit | DIGIT)*
    ;
-
 ExtraAt
     : {inBlockSpec}? ('\n'|'\r\n') [ \t\u000C]* '@' -> skip
     ;
-
 WS  :  [ \t\r\n\u000C] -> skip
     ;
-
 mode COMMENT;
 BlockCommentStop: '*/' -> mode(DEFAULT_MODE), skip;
 BlockStartSpec: ('\n'|'\r\n') [ \t\u000C]* '@' {inBlockSpec = true;} -> mode(DEFAULT_MODE);
 BlockCommentContent: .+? -> skip;
-
 mode LINE_COMMENT;
 LineCommentStop: ('\n'|'\r\n') -> mode(DEFAULT_MODE), skip;
 LineStartSpec: '@' {inLineSpec = true;} -> mode(DEFAULT_MODE);
 LineCommentContent: .+? -> skip;
-

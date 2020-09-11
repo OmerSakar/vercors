@@ -1,5 +1,7 @@
 parser grammar SpecParser;
-
+options {
+	tokenVocab = SpecLexer;
+}
 /**
  imported grammar rules
    langExpr

@@ -8,8 +8,8 @@ import LangCPPParser, SpecParser;
 
 langExpr: expression;
 langId: cppIdentifier;
-langType: typespecifier;
-langModifier: storageclassspecifier;
+langType: typeSpecifier;
+langModifier: storageClassSpecifier;
 langStatement: statement;
 langDecl: declaration;
 
