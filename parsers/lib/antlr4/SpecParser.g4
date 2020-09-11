@@ -39,6 +39,7 @@ valContractClause
  | 'context_everywhere' langExpr ';'
  | 'context' langExpr ';'
  | 'loop_invariant' langExpr ';'
+ | 'signals' '(' langType langId ')' langExpr ';'
  ;
 
 valBlock
@@ -123,6 +124,7 @@ valPrimary
     | '\\mrep' '(' langExpr ')'
     | 'Reducible' '(' langExpr ',' valReducibleOperator ')'
     | langId ':' langExpr
+    | '{:' langExpr ':}'
     ;
 
 valReducibleOperator
@@ -137,7 +139,7 @@ valReserved
     | VAL_CREATE | VAL_QED | VAL_APPLY | VAL_USE | VAL_DESTROY | VAL_SPLIT | VAL_MERGE | VAL_CHOOSE | VAL_FOLD
     | VAL_UNFOLD | VAL_OPEN | VAL_CLOSE | VAL_ASSUME | VAL_INHALE | VAL_EXHALE | VAL_LABEL | VAL_REFUTE | VAL_WITNESS
     | VAL_GHOST | VAL_SEND | VAL_WORD_TO | VAL_RECV | VAL_FROM | VAL_TRANSFER | VAL_CSL_SUBJECT | VAL_SPEC_IGNORE
-    | VAL_ACTION | VAL_ATOMIC | VAL_REDUCIBLE)
+    | VAL_ACTION | VAL_ATOMIC | VAL_REDUCIBLE | VAL_SIGNALS )
  | '\\result'
  | '\\current_thread'
  | 'none' // No permission
@@ -145,6 +147,8 @@ valReserved
  | 'read' // Any read permission
  | 'None' // The empty value of the option langType
  | 'empty' // The empty process in the context of Models
+ | '\\ltid'
+ | '\\gtid'
  ;
 
 valType

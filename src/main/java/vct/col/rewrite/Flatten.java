@@ -167,6 +167,30 @@ public class Flatten extends AbstractRewriter {
       result=create.local_name(name);
       return;
     }
+      case ITE: {
+        String name = "__flatten_"+(++counter);
+        ASTNode decl = create.field_decl(name, e.arg(1).getType());
+        declaration_block.addStatement(decl);
+
+        IfStatement ifStatement = new IfStatement();
+        ASTNode guard = rewrite(e.arg(0));
+
+        block_stack.push(current_block);
+        current_block = create.block();
+        ASTNode evalTrue = create.assignment(create.local_name(name), rewrite(e.arg(1)));
+        current_block.add(evalTrue);
+        ifStatement.addClause(guard, current_block);
+
+        current_block = create.block();
+        ASTNode evalFalse = create.assignment(create.local_name(name), rewrite(e.arg(2)));
+        current_block.add(evalFalse);
+        ifStatement.addClause(IfStatement.elseGuard(), current_block);
+        current_block = block_stack.pop();
+
+        current_block.addStatement(ifStatement);
+        result = create.local_name(name);
+        return;
+      }
     default:
       super.visit(e);
       return;
@@ -350,7 +374,7 @@ public class Flatten extends AbstractRewriter {
       c=copy_pure.rewrite(mc);
     }
     Method.Kind kind=m.kind;
-    Method res=create.method_kind(kind,rewrite(m.getReturnType()) , c, name, args, m.usesVarArgs(),null);
+    Method res=create.method_kind(kind, rewrite(m.getReturnType()), rewrite(m.signals), c, name, args, m.usesVarArgs(),null);
     ASTNode body=m.getBody();
     if (body!=null) {
       if (body instanceof BlockStatement) {
