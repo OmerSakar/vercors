@@ -222,6 +222,12 @@ public class SilverStatementMap<T,E,S> implements ASTMapping<S> {
   }
 
   @Override
+  public S map(LambdaExpression m) {
+
+    return null;
+  }
+
+  @Override
   public S map(ASTClass c) {
     
     return null;

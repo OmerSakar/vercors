@@ -27,7 +27,9 @@ public interface ASTVisitor<T> {
   public void visit(ConstantExpression e);
   
   public void visit(OperatorExpression e);
-  
+
+  public void visit(LambdaExpression e);
+
   public void visit(NameExpression e);
   
   public void visit(ClassType t);

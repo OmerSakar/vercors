@@ -24,7 +24,9 @@ public interface ASTMapping<R> {
   public R map(ConstantExpression e);
   
   public R map(OperatorExpression e);
-  
+
+   public R map(LambdaExpression e);
+
   public R map(NameExpression e);
   
   public R map(ClassType t);

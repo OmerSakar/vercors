@@ -206,6 +206,11 @@ class MatchLinear implements ASTMapping1<Boolean,ASTNode> {
   }
 
   @Override
+  public Boolean map(LambdaExpression e, ASTNode a) {
+    return null;
+  }
+
+  @Override
   public Boolean map(ASTClass c, ASTNode a) {
     
     return null;

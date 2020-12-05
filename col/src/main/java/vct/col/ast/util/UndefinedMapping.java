@@ -131,6 +131,11 @@ public class UndefinedMapping<T> implements ASTMapping<T> {
   }
 
   @Override
+  public T map(LambdaExpression e) {
+    return null;
+  }
+
+  @Override
   public T map(ASTClass c) {
     return null;
   }

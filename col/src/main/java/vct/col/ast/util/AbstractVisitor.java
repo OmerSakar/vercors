@@ -111,8 +111,10 @@ public class AbstractVisitor<T> extends ASTFrame<T> implements ASTVisitor<T> {
 
   @Override public void visit(Method m){ visit_any(m); }
 
+  @Override public void visit(LambdaExpression e){ visit_any(e); }
+
   @Override public void visit(ASTClass c){ visit_any(c); }
-  
+
   @Override public void visit(BindingExpression e){ visit_any(e); }
   
   @Override public void visit(Dereference e){ visit_any(e); }

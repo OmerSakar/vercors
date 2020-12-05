@@ -143,6 +143,12 @@ public class EmptyVisitor<T> implements ASTVisitor<T> {
   }
 
   @Override
+  public void visit(LambdaExpression e) {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
   public void visit(ASTClass c) {
     // TODO Auto-generated method stub
     

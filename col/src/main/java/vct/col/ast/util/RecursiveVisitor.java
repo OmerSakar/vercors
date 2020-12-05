@@ -253,6 +253,15 @@ public class RecursiveVisitor<T> extends ASTFrame<T> implements ASTVisitor<T> {
   }
 
   @Override
+  public void visit(LambdaExpression e) {
+    dispatch(e.args());
+    dispatch(e.body());
+    dispatch(e.returnType());
+    if (e.name().isDefined())
+      dispatch(e.name().get());
+  }
+
+  @Override
   public void visit(ActionBlock ab){
     dispatch(ab.history());
     dispatch(ab.fraction());

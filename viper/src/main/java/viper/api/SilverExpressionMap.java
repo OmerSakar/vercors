@@ -359,6 +359,11 @@ public class SilverExpressionMap<T,E> implements ASTMapping<E> {
   }
 
   @Override
+  public E map(LambdaExpression e) {
+    throw new HREError("cannot map constant value %s", e.getClass());
+  }
+
+  @Override
   public E map(ASTClass c) {
     return null;
   }
