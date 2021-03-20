@@ -28,10 +28,13 @@
 
 /** C 2011 grammar built from the C11 Spec */
 parser grammar C;
-import LangOMPParser;
+import LangOMPParser, LangGPGPUParser;
 
 primaryExpression
-    :   clangIdentifier
+    /* valPrimary has to be before even identifier, so we consume `reserved arguments` instead of greedily matching
+     * the identifier first. */
+    :   {specLevel>0}? valPrimary
+    |   clangIdentifier
     |   Constant
     |   StringLiteral+
     |   '(' expression ')'
@@ -39,7 +42,6 @@ primaryExpression
     |   '__extension__'? '(' compoundStatement ')' // Blocks (GCC extension)
     |   '__builtin_va_arg' '(' unaryExpression ',' typeName ')'
     |   '__builtin_offsetof' '(' typeName ',' unaryExpression ')'
-    |   {specLevel>0}? valPrimary
     ;
 
 genericSelection
@@ -68,6 +70,7 @@ postfixExpression
     |   '(' typeName ')' '{' initializerList ',' '}'
     |   '__extension__' '(' typeName ')' '{' initializerList '}'
     |   '__extension__' '(' typeName ')' '{' initializerList ',' '}'
+    |   gpgpuCudaKernelInvocation
     ;
 
 argumentExpressionList
@@ -212,6 +215,8 @@ declarationSpecifier
     |   typeQualifier
     |   functionSpecifier
     |   alignmentSpecifier
+    |   gpgpuKernelSpecifier
+    |   valEmbedModifiers
     ;
 
 initDeclaratorList
@@ -363,21 +368,22 @@ gccAttributeSpecifier
     ;
 
 gccAttributeList
-    :   gccAttribute (',' gccAttribute)*
+    :   gccAttributeListNonEmpty
     |   // empty
+    ;
+
+gccAttributeListNonEmpty
+    :   gccAttributeListNonEmpty ',' gccAttribute
+    |   gccAttribute
     ;
 
 gccAttribute
     :   ~(',' | '(' | ')') // relaxed def for "identifier or reserved word"
-        ('(' argumentExpressionList? ')')?
+        parenthesizedArgumentExpressionList?
     |   // empty
     ;
 
-nestedParenthesesBlock
-    :   (   ~('(' | ')')
-        |   '(' nestedParenthesesBlock ')'
-        )*
-    ;
+parenthesizedArgumentExpressionList : '(' argumentExpressionList? ')' ;
 
 pointer
     :   '*' typeQualifierList?
@@ -442,9 +448,9 @@ typedefName
     ;
 
 initializer
-    :   assignmentExpression
-    |   '{' initializerList '}'
+    :   '{' initializerList '}'
     |   '{' initializerList ',' '}'
+    |   assignmentExpression
     ;
 
 initializerList
@@ -477,7 +483,17 @@ statement
     |   selectionStatement
     |   iterationStatement
     |   jumpStatement
-    |   ('__asm' | '__asm__') ('volatile' | '__volatile__') '(' (logicalOrExpression (',' logicalOrExpression)*)? (':' (logicalOrExpression (',' logicalOrExpression)*)?)* ')' ';'
+    |   ('__asm' | '__asm__') ('volatile' | '__volatile__') '(' logicalOrExpressionList? logicalOrExpressionListColonList ')' ';'
+    ;
+
+logicalOrExpressionListColonList
+    :   ':' logicalOrExpressionList? logicalOrExpressionListColonList
+    |   // empty
+    ;
+
+logicalOrExpressionList
+    :   logicalOrExpression
+    |   logicalOrExpressionList ',' logicalOrExpression
     ;
 
 labeledStatement
@@ -501,6 +517,9 @@ blockItem
     |   statement
     |   valEmbedStatementBlock
     |   {specLevel>0}? valStatement
+    |   gpgpuLocalBarrier
+    |   gpgpuGlobalBarrier
+    |   gpgpuAtomicBlock
     ;
 
 expressionStatement
@@ -541,6 +560,7 @@ translationUnit
 externalDeclaration
     :   functionDefinition
     |   declaration
+    |   valEmbedDeclarationBlock
     |   ';' // stray ;
     ;
 

@@ -32,9 +32,6 @@ public class ArrayNullValues extends AbstractRewriter {
     @Override
     public void visit(OperatorExpression exp) {
         switch(exp.operator()) {
-            case Get:
-                break;
-
             case UPlus:
             case UMinus:
             case Exp:
@@ -47,6 +44,9 @@ public class ArrayNullValues extends AbstractRewriter {
             case BitOr:
             case BitXor:
             case BitNot:
+            case AmbiguousAnd:
+            case AmbiguousOr:
+            case AmbiguousXor:
             case And:
             case Or:
             case Not:
@@ -88,14 +88,13 @@ public class ArrayNullValues extends AbstractRewriter {
                 break;
 
             case Assign:
-            case Set:
                 if(exp.getType().isPrimitive(PrimitiveSort.Option)) {
                     exp.arg(1).setType(exp.getType());
                 }
                 break;
 
             case MulAssign:
-            case DivAssign:
+            case FloorDivAssign:
             case RemAssign:
             case AddAssign:
             case SubAssign:
@@ -156,7 +155,7 @@ public class ArrayNullValues extends AbstractRewriter {
             case Cons:
             case Drop:
             case Take:
-            case Append:
+            case Concat:
             case Head:
             case Tail:
                 break;
@@ -203,11 +202,6 @@ public class ArrayNullValues extends AbstractRewriter {
             case ReducibleMin:
                 break;
             case Held:
-                break;
-            case Identity:
-                if(exp.getType().isPrimitive(PrimitiveSort.Option)) {
-                    exp.arg(0).setType(exp.getType());
-                }
                 break;
             case Indirection:
                 break;

@@ -77,7 +77,7 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
         if (e.getDefinition().typeParameters.length != 0) {
             invokationsOfAbstractFunctions.add(e);
 
-            StringBuilder generatedName = new StringBuilder(e.method);
+            StringBuilder generatedName = new StringBuilder(e.method());
             if (e.getArgs() != null && e.getArgs().length > 0) {
                 for (ASTNode arg : e.getArgs()) {
                     generatedName.append("_").append(arg.getType().toString());
@@ -85,7 +85,7 @@ public class MonomorphizeGenericFunctions extends AbstractRewriter {
             }
             generatedName.append("_").append(e.getType().toString());
 
-            result = create.invokation(rewrite(e.object), rewrite(e.dispatch), generatedName.toString(), e.getArgs());
+            result = create.invokation(rewrite(e.object()), rewrite(e.dispatch()), generatedName.toString(), e.getArgs());
         } else {
             super.visit(e);
         }

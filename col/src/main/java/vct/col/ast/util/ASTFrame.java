@@ -2,14 +2,16 @@ package vct.col.ast.util;
 
 import hre.lang.Failure;
 import hre.util.SingleNameSpace;
-import vct.col.ast.expr.BindingExpression;
-import vct.col.ast.expr.MethodInvokation;
-import vct.col.ast.expr.NameExpression;
-import vct.col.ast.expr.OperatorExpression;
+import scala.Option;
+import vct.col.ast.expr.*;
 import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.composite.*;
 import vct.col.ast.stmt.decl.*;
 import vct.col.ast.type.ClassType;
+import vct.col.ast.type.PrimitiveSort;
+import vct.col.ast.type.PrimitiveType;
+import vct.col.ast.type.TypeExpression;
+import vct.col.ast.type.TypeOperator;
 
 import java.util.ArrayList;
 import java.util.Stack;
@@ -38,12 +40,12 @@ public abstract class ASTFrame<T> {
     /**
      * Stores the kind of the variable.
      */
-    public final NameExpression.Kind kind;
+    public final NameExpressionKind kind;
     
     /**
      * Constructor for a variable info record.
      */
-    public VariableInfo(ASTNode reference,NameExpression.Kind kind){
+    public VariableInfo(ASTNode reference, NameExpressionKind kind){
       this.reference=reference;
       this.kind=kind;
     }
@@ -140,7 +142,11 @@ public abstract class ASTFrame<T> {
   
   /** */
   protected ASTNode getParentNode(){
-    return node_stack.get(node_stack.size()-2);
+    return node_stack.size() >= 2 ? node_stack.get(node_stack.size()-2) : null;
+  }
+
+  protected ASTNode getAncestor(int stepsBack) {
+    return node_stack.size() >= 2 + stepsBack ? node_stack.get(node_stack.size()-2-stepsBack) : null;
   }
 
   /**
@@ -165,7 +171,7 @@ public abstract class ASTFrame<T> {
       }
       if (c!=null){
         for(DeclarationStatement decl:c.given){
-          variables.add(decl.getName(),new VariableInfo(decl,NameExpression.Kind.Argument));
+          variables.add(decl.getName(),new VariableInfo(decl,NameExpressionKind.Argument));
         }
         scan_labels(c.pre_condition);
       }
@@ -218,7 +224,7 @@ public abstract class ASTFrame<T> {
       case ENTER:
         variables.enter();
         for (DeclarationStatement decl : adt.parametersJava()) {
-          variables.add(decl.name(), new VariableInfo(decl, NameExpression.Kind.Argument));
+          variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Argument));
         }
         break;
       case LEAVE:
@@ -246,7 +252,7 @@ public abstract class ASTFrame<T> {
       switch(action){
       case ENTER:
         for(NameExpression label:node.getLabels()){
-          variables.add(label.getName(),new VariableInfo(node,NameExpression.Kind.Label));
+          variables.add(label.getName(),new VariableInfo(node, NameExpressionKind.Label));
         }
         break;
       case LEAVE:
@@ -270,7 +276,7 @@ public abstract class ASTFrame<T> {
             ASTNode e=((OperatorExpression) node).arg(0);
             if (e instanceof NameExpression){
               NameExpression name=(NameExpression) e;
-              variables.add(name.getName(),new VariableInfo(node,NameExpression.Kind.Output));
+              variables.add(name.getName(),new VariableInfo(node, NameExpressionKind.Output));
             } else {
               Abort("unexpected output binder argument: %s",e.getClass());
             }
@@ -286,14 +292,27 @@ public abstract class ASTFrame<T> {
         break;
       }
     }
-   
+
+    @Override
+    public void visit(VariableDeclaration decl) {
+      for(DeclarationStatement stat : decl.flatten()) {
+        switch(action) {
+          case ENTER:
+            variables.add(stat.name(), new VariableInfo(stat, NameExpressionKind.Local));
+            break;
+          case LEAVE:
+            break;
+        }
+      }
+    }
+
     @Override
     public void visit(DeclarationStatement node){
       switch(action){
       case ENTER:
         DeclarationStatement decl=(DeclarationStatement)node;
         if (decl.getParent() instanceof BlockStatement || decl.getParent()==null){
-          variables.add(decl.name(), new VariableInfo(decl,NameExpression.Kind.Local));
+          variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Local));
         }
         break;
       case LEAVE:
@@ -310,13 +329,13 @@ public abstract class ASTFrame<T> {
         switch(((ASTSpecial)node).kind){
         case Witness:{
           for(NameExpression name:node.getArg(0).getLabels()){
-            variables.add(name.getName(),new VariableInfo(node,NameExpression.Kind.Label));
+            variables.add(name.getName(),new VariableInfo(node, NameExpressionKind.Label));
           }
           break;
         }
         case Apply:{
           for(NameExpression name:node.getLabels()){
-            variables.add(name.getName(),new VariableInfo(node,NameExpression.Kind.Label));
+            variables.add(name.getName(),new VariableInfo(node, NameExpressionKind.Label));
           }
           break;          
         }
@@ -333,6 +352,7 @@ public abstract class ASTFrame<T> {
       }
     }
 
+    //TODO OS map a map out of this int.
     private int genericClassTypeParameters = 0;
 
     @Override
@@ -352,7 +372,7 @@ public abstract class ASTFrame<T> {
         Contract contract=((ASTClass)node).getContract();
         if (contract!=null){
           for (DeclarationStatement decl:contract.given){
-            variables.add(decl.name(), new VariableInfo(decl, NameExpression.Kind.Field));
+            variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Field));
           }
         }
         break;
@@ -362,13 +382,14 @@ public abstract class ASTFrame<T> {
           class_stack.pop();
           genericClassTypeParameters--;
         }
-        class_stack.pop(); 
+        class_stack.pop();
         break;
       default:
         break;
       }
     }
 
+    //TODO OS map a map out of this int.
     private int genericMethodTypeParameters = 0;
 
     @Override
@@ -391,7 +412,14 @@ public abstract class ASTFrame<T> {
 
         variables.enter();
         for (DeclarationStatement decl:(node).getArgs()) {
-          variables.add(decl.name(), new VariableInfo(decl, NameExpression.Kind.Argument));
+          variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Argument));
+        }
+        if(node.getReturnType() instanceof TypeExpression && ((TypeExpression) node.getReturnType()).operator() == TypeOperator.Kernel) {
+          for(String kernelArgument : new String[]{"opencl_lid", "opencl_gid", "opencl_gcount", "opencl_gsize"}) {
+            variables.add(kernelArgument, new VariableInfo(
+                    new DeclarationStatement(kernelArgument, new PrimitiveType(PrimitiveSort.Integer)),
+                    NameExpressionKind.Argument));
+          }
         }
         add_contract_vars(node);
         break;
@@ -450,7 +478,7 @@ public abstract class ASTFrame<T> {
         }
         if (loop.getInitBlock() instanceof DeclarationStatement){
           DeclarationStatement decl=(DeclarationStatement)loop.getInitBlock();
-          variables.add(decl.name(), new VariableInfo(decl,NameExpression.Kind.Local));
+          variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Local));
         }
         if (loop.getInitBlock() instanceof BlockStatement){
           BlockStatement block=(BlockStatement)loop.getInitBlock();
@@ -458,8 +486,12 @@ public abstract class ASTFrame<T> {
           for(int i=0;i<N;i++){
             if (block.getStatement(i) instanceof DeclarationStatement){
               DeclarationStatement decl=(DeclarationStatement)block.getStatement(i);
-              variables.add(decl.name(), new VariableInfo(decl,NameExpression.Kind.Local));
-            }         
+              variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Local));
+            } else if(block.getStatement(i) instanceof VariableDeclaration) {
+              for(DeclarationStatement child : ((VariableDeclaration) block.getStatement(i)).flatten()) {
+                variables.add(child.name(), new VariableInfo(child, NameExpressionKind.Local));
+              }
+            }
           }
         }
         break;
@@ -478,7 +510,7 @@ public abstract class ASTFrame<T> {
         variables.enter();
         ForEachLoop loop=(ForEachLoop)node;
         for(DeclarationStatement decl:loop.decls){
-          variables.add(decl.name(), new VariableInfo(decl,NameExpression.Kind.Local));
+          variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Local));
         }
         break;
       case LEAVE:
@@ -495,7 +527,7 @@ public abstract class ASTFrame<T> {
       case ENTER:
         variables.enter();
         for(DeclarationStatement decl:((BindingExpression)node).getDeclarations()){
-          variables.add(decl.name(), new VariableInfo(decl,NameExpression.Kind.Local));
+          variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Local));
         }
         break;
       case LEAVE:
@@ -512,7 +544,7 @@ public abstract class ASTFrame<T> {
       case ENTER:
         variables.enter();
         for (DeclarationStatement decl : pb.itersJava()) {
-          variables.add(decl.name(), new VariableInfo(decl, NameExpression.Kind.Local));
+          variables.add(decl.name(), new VariableInfo(decl, NameExpressionKind.Local));
         }
         break;
       case LEAVE:
@@ -527,7 +559,7 @@ public abstract class ASTFrame<T> {
       switch(action){
       case ENTER:
         variables.enter();
-        variables.add(pb.iter().name(), new VariableInfo(pb.iter(), NameExpression.Kind.Local));
+        variables.add(pb.iter().name(), new VariableInfo(pb.iter(), NameExpressionKind.Local));
         break;
       case LEAVE:
         variables.leave();
@@ -537,6 +569,41 @@ public abstract class ASTFrame<T> {
       }
     }
 
+    @Override
+    public void visit(CatchClause cc) {
+      switch(action){
+        case ENTER:
+          variables.enter();
+          if (cc.javaCatchTypes().length != 1) {
+            // To support this, the least upper bound of all the types must be used here
+            // See: https://docs.oracle.com/javase/specs/jls/se8/html/jls-14.html#jls-14.20
+            Abort("Multi-catch not yet supported");
+          }
+          DeclarationStatement ccDeclarationStatement = new DeclarationStatement(cc.name(), cc.javaCatchTypes()[0], Option.empty());
+          variables.add(cc.name(), new VariableInfo(ccDeclarationStatement, NameExpressionKind.Local));
+          break;
+        case LEAVE:
+          variables.leave();
+          break;
+        default:
+          break;
+      }
+    }
+
+    @Override
+    public void visit(SignalsClause sc) {
+      switch(action){
+        case ENTER:
+          variables.enter();
+          variables.add(sc.name(), new VariableInfo(sc.asDeclarationStatement(), NameExpressionKind.Local));
+          break;
+        case LEAVE:
+          variables.leave();
+          break;
+        default:
+          break;
+      }
+    }
   };
 
   public boolean searchInClassStack(String ct) {
@@ -565,10 +632,10 @@ public abstract class ASTFrame<T> {
       }
     }
     for(DeclarationStatement decl:cl.dynamicFields()){
-      variables.add(decl.name(),new VariableInfo(decl,NameExpression.Kind.Field));
+      variables.add(decl.name(),new VariableInfo(decl, NameExpressionKind.Field));
     }
     for(DeclarationStatement decl:cl.staticFields()){
-      variables.add(decl.name(),new VariableInfo(decl,NameExpression.Kind.Field));
+      variables.add(decl.name(),new VariableInfo(decl, NameExpressionKind.Field));
     }
   }
 
@@ -577,11 +644,11 @@ public abstract class ASTFrame<T> {
     Contract c=m.getContract();
     if (c==null) return;
     for(DeclarationStatement decl:c.given){
-      variables.add(decl.name(),new VariableInfo(decl,NameExpression.Kind.Argument));
+      variables.add(decl.name(),new VariableInfo(decl, NameExpressionKind.Argument));
     }
     scan_labels(c.pre_condition);
     for(DeclarationStatement decl:c.yields){
-      variables.add(decl.name(),new VariableInfo(decl,NameExpression.Kind.Argument));
+      variables.add(decl.name(),new VariableInfo(decl, NameExpressionKind.Local));
     }
     scan_labels(c.post_condition);
   }
@@ -590,13 +657,13 @@ public abstract class ASTFrame<T> {
   private void scan_labels(ASTNode node) {
     //if (node instanceof MethodInvokation){
       for(NameExpression label:node.getLabels()){
-        variables.add(label.getName(),new VariableInfo(node,NameExpression.Kind.Label));
+        variables.add(label.getName(),new VariableInfo(node, NameExpressionKind.Label));
       }
       if (node instanceof ASTSpecial){
         ASTSpecial s=(ASTSpecial)node;
         if (s.kind==ASTSpecial.Kind.Label){
           NameExpression label=(NameExpression)s.args[0];
-          variables.add(label.getName(),new VariableInfo(node,NameExpression.Kind.Label));
+          variables.add(label.getName(),new VariableInfo(node, NameExpressionKind.Label));
         }
       }
     //}

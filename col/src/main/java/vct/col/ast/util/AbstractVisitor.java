@@ -7,8 +7,7 @@ import vct.col.ast.expr.*;
 import vct.col.ast.expr.constant.ConstantExpression;
 import vct.col.ast.expr.constant.StructValue;
 import vct.col.ast.generic.ASTNode;
-import vct.col.ast.langspecific.*;
-import vct.col.ast.langspecific.c.CFunctionType;
+import vct.col.ast.langspecific.c.*;
 import vct.col.ast.stmt.composite.*;
 import vct.col.ast.stmt.decl.*;
 import vct.col.ast.stmt.terminal.AssignmentStatement;
@@ -206,5 +205,24 @@ public class AbstractVisitor<T> extends ASTFrame<T> implements ASTVisitor<T> {
   @Override
   public void visit(OMPForSimd loop) {
     visit_any(loop);
+  }
+
+  @Override
+  public void visit(InlineQuantifierPattern pattern) {
+    visit_any(pattern);
+  }
+
+  public void visit(CatchClause cc) {
+    visit_any(cc);
+  }
+
+  @Override
+  public void visit(SignalsClause sc) {
+    visit_any(sc);
+  }
+
+  @Override
+  public void visit(KernelInvocation ki) {
+    visit_any(ki);
   }
 }

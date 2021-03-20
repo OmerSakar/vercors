@@ -15,6 +15,7 @@ import vct.col.ast.type.ClassType;
 import vct.col.ast.type.Type;
 import vct.col.ast.util.AbstractRewriter;
 import vct.col.ast.util.ContractBuilder;
+import viper.silver.ast.Declaration;
 
 /**
  * This rewriter converts a program with classes into
@@ -28,6 +29,7 @@ import vct.col.ast.util.ContractBuilder;
 public class ClassConversion extends AbstractRewriter {
 
   private static final String SEP="__";
+  public static final String CONSTRUCTOR = "constructor";
       
   public ClassConversion(ProgramUnit source) {
     super(source);
@@ -81,6 +83,8 @@ public class ClassConversion extends AbstractRewriter {
         returns=rewrite(m.getReturnType());
         kind=m.kind;
       }
+      Type[] signals = rewrite(m.signals);
+      DeclarationStatement[] typeParameters = rewrite(m.typeParameters);
       ContractBuilder cb=new ContractBuilder();
       String name = cl.name() + SEP + m.name();
       ArrayList<DeclarationStatement> args=new ArrayList<DeclarationStatement>();
@@ -103,6 +107,7 @@ public class ClassConversion extends AbstractRewriter {
       }
       body=rewrite(body);
       if (m.kind==Method.Kind.Constructor){
+        name += SEP + CONSTRUCTOR;
         if (body!=null){
           body=create.block(
             create.field_decl(THIS,create.class_type(cl.name())),
@@ -126,7 +131,7 @@ public class ClassConversion extends AbstractRewriter {
       } else {
         rewrite(m.getContract(),cb);
       }
-      Method p=create.method_kind(kind, returns,cb.getContract(), name, args.toArray(new DeclarationStatement[0]), varArgs, body);
+      Method p=create.method_kind(kind, name, returns, signals, typeParameters, cb.getContract(), args.toArray(new DeclarationStatement[0]), varArgs, body);
       create.leave();
       p.setStatic(true);
       target().add(p);
@@ -138,12 +143,6 @@ public class ClassConversion extends AbstractRewriter {
   public void visit(StructValue v) {
     if (v.type() instanceof ClassType) {
       Abort("struct value used for constructor call");
-      // If this is actually a constructor call.
-      String method = v.type() + SEP + v.type();
-      MethodInvokation res=create.invokation(null, null, method, rewrite(v.valuesArray()));
-      res.set_before(rewrite(v.get_before()));
-      res.set_after(rewrite(v.get_after()));
-      result=res;
     } else {
       super.visit(v);
     }
@@ -154,38 +153,43 @@ public class ClassConversion extends AbstractRewriter {
     String method;
     ArrayList<ASTNode> args=new ArrayList<ASTNode>();
     Method def=s.getDefinition();
-    ClassType dispatch=s.dispatch;
+    ClassType dispatch=s.dispatch();
     ASTNode object=null;
     if (def.getParent()==null){
-      method=s.method;
-    } else if (s.object instanceof ClassType){
-      if (s.method.equals(Method.JavaConstructor)){
-        method=s.dispatch.getName()+SEP+s.dispatch.getName();
+      method=s.method();
+    } else if (s.object() instanceof ClassType){
+      if (s.method().equals(Method.JavaConstructor)){
+        method=s.dispatch().getName()+SEP+s.dispatch().getName()+SEP+CONSTRUCTOR;
         dispatch=null;
       } else if (def.getParent() instanceof AxiomaticDataType){
-        method=s.method;
-        object=copy_rw.rewrite(s.object);
+        method=s.method();
+        object=copy_rw.rewrite(s.object());
       } else {
-        method=((ClassType)s.object).getName()+SEP+s.method;
+        method=((ClassType)s.object()).getName()+SEP+s.method();
+        if(def.kind == Kind.Constructor) {
+          method += SEP + CONSTRUCTOR;
+        }
       }
-    } else if (s.object==null){
-      if (s.method.equals(Method.JavaConstructor)){
-        method=s.dispatch.getName()+SEP+s.dispatch.getName();
+    } else if (s.object()==null){
+      if (s.method().equals(Method.JavaConstructor)){
+        method=s.dispatch().getName()+SEP+s.dispatch().getName()+SEP+CONSTRUCTOR;
         dispatch=null;
       } else {
-        method=s.method;
+        method=s.method();
       }
     } else {
-      method=((ClassType)s.object.getType()).getName();
+      method=((ClassType)s.object().getType()).getName();
       if (method.equals("<<adt>>") || def.getParent() instanceof AxiomaticDataType){
-        method=s.method;
+        method=s.method();
       } else {
-        method+=SEP+s.method;
-        if (!def.isStatic()){
-          args.add(rewrite(s.object));
+        method+=SEP+s.method();
+
+        if(def.kind == Kind.Constructor) {
+          method += SEP + CONSTRUCTOR;
         }
-        if (def.kind==Kind.Predicate && !s.object.isReserved(ASTReserved.This) && (!fold_unfold) ){
-          //extra=create.expression(StandardOperator.NEQ,rewrite(s.object),create.reserved_name(ASTReserved.Null));
+
+        if (!def.isStatic()){
+          args.add(rewrite(s.object()));
         }
       }      
     }

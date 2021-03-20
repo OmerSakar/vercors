@@ -12,9 +12,9 @@ abstract class ToCOL(fileName: String, tokens: CommonTokenStream, parser: org.an
 
   private def fileOrigin(tree: ParserRuleContext): FileOrigin = {
     val startLine = tree.start.getLine
-    val startCol = tree.start.getCharPositionInLine
+    val startCol = tree.start.getCharPositionInLine + 1
     val endLine = tree.stop.getLine
-    val endCol = tree.stop.getCharPositionInLine + tree.stop.getStopIndex - tree.stop.getStartIndex
+    val endCol = tree.stop.getCharPositionInLine + tree.stop.getStopIndex - tree.stop.getStartIndex + 1
 
     new FileOrigin(fileName, startLine, startCol, endLine, endCol)
   }
@@ -54,6 +54,11 @@ abstract class ToCOL(fileName: String, tokens: CommonTokenStream, parser: org.an
   def getOrFail[B](node: ParserRuleContext, thing: Option[B], message: String): B = thing match {
     case None => fail(node, message)
     case Some(b) => b
+  }
+
+  def failIfDefined[T <: ParserRuleContext](node: Option[T], format: String, args: Object*): Unit = node match {
+    case Some(node) => fail(node, format, args)
+    case None => // do nothing
   }
 
   def fail(tree: ParserRuleContext, format: String, args: Object*): Nothing = {

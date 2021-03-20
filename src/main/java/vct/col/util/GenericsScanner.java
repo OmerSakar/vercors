@@ -32,12 +32,12 @@ public class GenericsScanner extends RecursiveVisitor<Object> {
 
     @Override
     public void visit(MethodInvokation e) {
-        if (e.dispatch != null) {
-            List<Type> typeParams = JavaConverters.seqAsJavaList(e.dispatch.params()).stream().map(t -> (Type) t).collect(Collectors.toList());
-            Set<List<Type>> mappings = this.mappings.getOrDefault(e.dispatch, new HashSet<>());
+        if (e.dispatch() != null) {
+            List<Type> typeParams = JavaConverters.seqAsJavaList(e.dispatch().params()).stream().map(t -> (Type) t).collect(Collectors.toList());
+            Set<List<Type>> mappings = this.mappings.getOrDefault(e.dispatch(), new HashSet<>());
             mappings.add(typeParams);
-            this.mappings.put(e.dispatch, mappings);
-        } else if (e.object != null && e.object instanceof NameExpression && source().find(((NameExpression) e.object).getName()) != null && source().find(((NameExpression) e.object).getName()).find_predicate(e.method) != null) {
+            this.mappings.put(e.dispatch(), mappings);
+        } else if (e.object() != null && e.object() instanceof NameExpression && source().find(((NameExpression) e.object()).getName()) != null && source().find(((NameExpression) e.object()).getName()).find_predicate(e.method()) != null) {
             staticMethodInvokations.add(e);
         } else {
             super.visit(e);

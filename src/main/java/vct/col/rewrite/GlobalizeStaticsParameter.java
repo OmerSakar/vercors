@@ -10,6 +10,8 @@ import vct.col.ast.expr.MethodInvokation;
 import vct.col.ast.stmt.decl.ProgramUnit;
 import vct.col.ast.expr.StandardOperator;
 
+import java.util.Objects;
+
 /**
  * Use a parameter global to refer to static entries.
  * 
@@ -26,7 +28,7 @@ public class GlobalizeStaticsParameter extends GlobalizeStatics {
    * Add the global argument to every non-static method.
    */
   public void visit(Method m){
-    if (prefix!=null){
+    if (prefix!=null || m.isStatic()){
       super.visit(m);
     } else {
       switch(m.getKind()){
@@ -44,10 +46,13 @@ public class GlobalizeStaticsParameter extends GlobalizeStatics {
         rewrite(m.getContract(),cb);
         result=create.method_kind(
             m.getKind(),
-            rewrite(m.getReturnType()),
-            cb.getContract(),
             m.getName(),
+            rewrite(m.getReturnType()),
+            rewrite(m.signals),
+            rewrite(m.typeParameters),
+            cb.getContract(),
             args,
+            m.usesVarArgs(),
             rewrite(m.getBody()));
         break;
       }
@@ -62,7 +67,7 @@ public class GlobalizeStaticsParameter extends GlobalizeStatics {
    */
   public void visit(MethodInvokation e){
     Method m=e.getDefinition();
-    if (m==null) Abort("cannot globalize method invokaiton without method definition");
+    Objects.requireNonNull(m, "cannot globalize method invokaiton without method definition");
     if (m.isStatic() && !e.isInstantiation()){
       super.visit(e);
     } else {
@@ -70,7 +75,7 @@ public class GlobalizeStaticsParameter extends GlobalizeStatics {
       if (e.getDefinition()!=null){
         kind=e.getDefinition().getKind();
       } else {
-        Warning("assuming kind of %s is Predicate",e.method);
+        Warning("assuming kind of %s is Predicate",e.method());
       }
       switch(kind){
       case Constructor:
@@ -85,9 +90,9 @@ public class GlobalizeStaticsParameter extends GlobalizeStatics {
           args[i]=rewrite(e.getArg(i-1));
         }
         MethodInvokation res=create.invokation(
-            rewrite(e.object),
-            rewrite(e.dispatch),
-            e.method,
+            rewrite(e.object()),
+            rewrite(e.dispatch()),
+            e.method(),
             args
         );
         if (e.get_before().size()>0) {

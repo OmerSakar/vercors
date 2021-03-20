@@ -2,8 +2,8 @@ package vct.test
 
 import java.util.concurrent.Callable
 import java.util.regex.Pattern
-
 import hre.io.{Message, MessageProcessEnvironment}
+import hre.lang.System.Output
 import hre.util.TestReport.Verdict
 
 import scala.collection.mutable
@@ -37,10 +37,13 @@ case class Task(env: MessageProcessEnvironment, conditions: Seq[TaskCondition]) 
           if (exitCode.get != 0) {
             verdict = Verdict.Error
           }
+        case "killed" =>
+          return Seq(ProcessKilled)
         case "exec error %s" =>
           return Seq(InternalError(msg.getArg(0).asInstanceOf[String]))
         case "stdout: %s" | "stderr: %s" =>
           val line = msg.getArg(0).asInstanceOf[String]
+
           val lineMatcher = TIME_PATTERN.matcher(line)
           if(lineMatcher.find()) {
             times.put(lineMatcher.group(2), Integer.parseInt(lineMatcher.group(3)))
@@ -137,6 +140,7 @@ case class PassNonFail(fail_methods: Seq[String]) extends TaskCondition {
 
 sealed trait FailReason
 object NullMessage extends FailReason
+object ProcessKilled extends FailReason
 case class InternalError(description: String) extends FailReason
 object MissingVerdict extends FailReason
 case class InconsistentVerdict(olderVerdict: Verdict, newerVerdict: Verdict) extends FailReason

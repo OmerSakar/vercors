@@ -87,7 +87,8 @@ public class CurrentThreadRewriter extends AbstractRewriter {
         }
         rewrite(m.getContract(),cb);
         ASTNode body=rewrite(m.getBody());
-        result=create.method_kind(m.kind,returns, cb.getContract(), m.name(), args.toArray(new DeclarationStatement[0]), body);
+        Type[] signals = rewrite(m.signals);
+        result=create.method_kind(m.kind, returns, signals, cb.getContract(), m.name(), args, m.usesVarArgs(), body);
     } else {
         super.visit(m);
     }
@@ -114,9 +115,9 @@ public class CurrentThreadRewriter extends AbstractRewriter {
   public void visit(MethodInvokation e){
     if (affected(e.getDefinition())){
       MethodInvokation res=create.invokation(
-          rewrite(e.object),
-          e.dispatch,
-          e.method,
+          rewrite(e.object()),
+          e.dispatch(),
+          e.method(),
           rewrite(create.local_name(ctname),e.getArgs())
       );
       res.set_before(rewrite(e.get_before()));

@@ -21,7 +21,8 @@ class TryCatchBlock(val main:BlockStatement, val after:BlockStatement, private[t
   def this(main:BlockStatement, after:BlockStatement) = this(main, after, new ArrayBuffer[CatchClause]())
   
   /** Yields the catch-clauses attached to this try-catch-block as a Java iterator. */
-  def catches = catchClauses.toIterable.asJava
+  def catchesJava = catchClauses.toIterable.asJava
+  def catches: Seq[CatchClause] = catchClauses
   
   /**
    * Adds a catch clause (i.e. an exception handler) to the try-catch-block AST node,
@@ -34,6 +35,10 @@ class TryCatchBlock(val main:BlockStatement, val after:BlockStatement, private[t
 
   def addCatchClauseArray(name: String, catchTypes: Array[Type], block: BlockStatement): Unit =
     addCatchClause(name, catchTypes.toSeq, block)
+
+  def addCatchClause(cc: CatchClause): Unit = catchClauses += cc
+
+  def numCatches: Int = catchClauses.length
 
   override def accept_simple[T,A](m:ASTMapping1[T,A], arg:A) = m.map(this, arg)
   override def accept_simple[T](v:ASTVisitor[T]) = handle_standard(() => v.visit(this))

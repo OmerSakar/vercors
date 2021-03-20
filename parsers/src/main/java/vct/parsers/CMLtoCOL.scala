@@ -6,17 +6,17 @@ import vct.antlr4.generated.CParser._
 import vct.antlr4.generated.CParserPatterns._
 import vct.col.ast.`type`.{ASTReserved, PrimitiveSort, Type}
 import vct.col.ast.expr.StandardOperator._
-import vct.col.ast.expr.{NameExpression, StandardOperator}
+import vct.col.ast.expr.{NameExpression, NameExpressionKind, StandardOperator}
 import vct.col.ast.generic.ASTNode
-import vct.col.ast.langspecific.c.{CFunctionType, ParamSpec}
-import vct.col.ast.langspecific._
+import vct.col.ast.langspecific.c._
 import vct.col.ast.stmt.composite.{BlockStatement, LoopStatement}
-import vct.col.ast.stmt.decl.{ASTDeclaration, ASTSpecial, Contract, DeclarationStatement, Method, ProgramUnit}
+import vct.col.ast.stmt.decl.{ASTDeclaration, ASTSpecial, Contract, DeclarationStatement, Method, ProgramUnit, SignalsClause}
 import vct.col.ast.util.ContractBuilder
 import vct.col.ast.util.SequenceUtils
 
 import scala.collection.immutable.{Bag, HashedBagConfiguration}
 import scala.collection.mutable
+import java.util
 
 object CMLtoCOL {
   def convert(tree: CompilationUnitContext, fileName: String, tokens: CommonTokenStream, parser: CParser): ProgramUnit = {
@@ -32,7 +32,12 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       new ProgramUnit()
     case CompilationUnit0(Some(units), _) =>
       val result = new ProgramUnit()
-      convertTranslationUnits(units).foreach(result.add)
+      convertTranslationUnits(units).map {
+        case field: DeclarationStatement =>
+          field.setStatic(true)
+          field
+        case other => other
+      }.foreach(result.add)
       result
   }
 
@@ -54,7 +59,8 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
   def convertDecl(tree: ExternalDeclarationContext): Seq[ASTDeclaration] = tree match {
     case ExternalDeclaration0(funcDecl) => convertDecl(funcDecl)
     case ExternalDeclaration1(decl) => convertDecl(decl)
-    case ExternalDeclaration2(";") => Seq()
+    case ExternalDeclaration2(valDecls) => convertValDecl(valDecls)
+    case ExternalDeclaration3(";") => Seq()
   }
 
   def convertDecl(tree: FunctionDefinitionContext): Seq[ASTDeclaration] = origin(tree, tree match {
@@ -76,13 +82,12 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       val body = convertStat(statement)
       val contract = getContract(convertValContract(maybeContract))
       val decls = t.params.map(param => getOrFail(decl, param.asDecl, "Parameter type or name missing"))
-      Seq(create method_decl(t.returnType, contract, name, decls.toArray, body))
+      val varargs = decls.nonEmpty && decls.last.`type`.isPrimitive(PrimitiveSort.CVarArgs)
+      val res = create method_kind (Method.Kind.Plain, t.returnType, contract, name, decls.toArray, varargs, body)
+      res.setStatic(true)
+      specs.valModifiers.foreach(res.attach(_))
+      Seq(res)
   })
-
-  def failIfDefined[T <: ParserRuleContext](node: Option[T], format: String, args: Object*): Unit = node match {
-    case Some(node) => fail(node, format, args)
-    case None => // do nothing
-  }
 
   def convertPointer(ptr: Option[PointerContext]): (Type => Type) = ptr match {
     case None => x => x
@@ -207,7 +212,7 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
         val (direct, ptr) = innerDecl match {
           case Declarator0(maybePtr, decl, _) => (decl, maybePtr)
         }
-        val t = convertPointer(ptr)(convertDeclaratorType(direct)(baseType))
+        val t = convertDeclaratorType(direct)(convertPointer(ptr)(baseType))
         val name = convertDeclaratorName(direct)
 
         t match {
@@ -215,7 +220,11 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
             val ret = funcT.returnType
             val params = funcT.params.map(param => getOrFail(decl, param.asDecl,
               "Parameter name and types are both required, even in empty forward declarations."))
-            create method_decl(ret, contract, name, params.toArray, null)
+            val varargs = params.nonEmpty && params.last.`type`.isPrimitive(PrimitiveSort.CVarArgs)
+            val res = create method_kind(Method.Kind.Plain, ret, contract, name, params.toArray, varargs, null)
+            res.setStatic(true)
+            specs.valModifiers.foreach(res.attach(_))
+            res
           case _ =>
             failIfDefined(maybeContract, "Contract not allowed in this place.")
             create field_decl(null, name, t, initVal.map(convertInitializer(_, t)).orNull)
@@ -344,6 +353,8 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
     private val _typeQual: mutable.Set[TypeQual] = mutable.Set()
     private val _funcSpec: mutable.Set[FuncSpec] = mutable.Set()
     private var _storageClass: Option[StorageClass] = None
+    var valModifiers: mutable.Seq[NameExpression] = mutable.Seq()
+    var isKernel: Boolean = false
 
     def typeSpec: Bag[TypeSpec] = Bag(_typeSpec.toSeq:_*)
     def typeQual: Set[TypeQual] = _typeQual.toSet
@@ -361,6 +372,9 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       case DeclarationSpecifier2(typeQualifier) => add(typeQualifier)
       case DeclarationSpecifier3(functionSpecifier) => add(functionSpecifier)
       case DeclarationSpecifier4(alignmentSpecifier) => ??(alignmentSpecifier)
+      case DeclarationSpecifier5(_) => isKernel = true
+      case DeclarationSpecifier6(valModifiersNode) =>
+        valModifiers ++= convertValModifiers(valModifiersNode)
     }
 
     def getStorageClass(tree: StorageClassSpecifierContext): StorageClass = tree match {
@@ -440,12 +454,18 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
           create primitive_type t
       }
 
-      storageClass match {
-        case None => Right(primitive)
-        case Some(Static) => Right(create.__static(primitive))
-        case Some(ExternSC) => Right(create.__extern(primitive))
-        case Some(sc) => Left(s"Storage class ${sc.getClass.getSimpleName} not supported")
+      val sc = storageClass match {
+        case None => primitive
+        case Some(Static) => create.__static(primitive)
+        case Some(ExternSC) => create.__extern(primitive)
+        case Some(sc) => return Left(s"Storage class ${sc.getClass.getSimpleName} not supported")
       }
+
+      Right(if(isKernel) {
+        create.__kernel(sc)
+      } else {
+        sc
+      })
     }
   }
 
@@ -453,11 +473,12 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
     case LangId0(id) => convertID(id)
   }
 
-  def convertIDName(id: LangIdContext): NameExpression = id match {
+  def convertIDName(id: LangIdContext): ASTNode = id match {
     case LangId0(id) => convertIDName(id)
   }
 
   def convertID(id: ClangIdentifierContext): String = id match {
+    case ClangIdentifier0(ValReserved1(s)) => s.substring(1, s.length-1)
     case ClangIdentifier0(reservedInSpec) =>
       fail(reservedInSpec, "This identifier is reserved, and may not be declared inside specifications.")
     case ClangIdentifier1(normalId) =>
@@ -466,7 +487,7 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       convertOverlappingValReservedID(reservedOutSpec)
   }
 
-  def convertIDName(tree: ClangIdentifierContext): NameExpression = origin(tree, tree match {
+  def convertIDName(tree: ClangIdentifierContext): ASTNode = origin(tree, tree match {
     case ClangIdentifier0(reservedInSpec) =>
       convertValReserved(reservedInSpec)
     case ClangIdentifier1("NULL") =>
@@ -490,7 +511,7 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
     case BlockItemList1(xs, x) => convertStatList(xs) ++ convertStat(x)
   }
 
-  def convertStat(statement: BlockItemContext): Seq[ASTNode] = statement match {
+  def convertStat(statement: BlockItemContext): Seq[ASTNode] = origin(statement, statement match {
     case BlockItem0(decl) =>
       convertDecl(decl)
     case BlockItem1(stat) =>
@@ -499,7 +520,15 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       convertValStat(valStat)
     case BlockItem3(valStat) =>
       Seq(convertValStat(valStat))
-  }
+    case BlockItem4(GpgpuLocalBarrier0(maybeContract, _, _, _, _)) =>
+      Seq(create.barrier("group_block", getContract(convertValContract(maybeContract)), new util.ArrayList[String](), null))
+    case BlockItem5(GpgpuGlobalBarrier0(maybeContract, _, _, _, _)) =>
+      Seq(create.barrier("kernel_block", getContract(convertValContract(maybeContract)), new util.ArrayList[String](), null))
+    case BlockItem6(GpgpuAtomicBlock0(_, block, maybeWithThen)) =>
+      val atomic = create.parallel_atomic(convertStat(block).asInstanceOf[BlockStatement], "__vercors_kernel_invariant__")
+      maybeWithThen.map(convertValWithThen).foreach(_.foreach(atomic.get_after.addStatement(_)))
+      Seq(atomic)
+  })
 
   def convertStat(statement: StatementContext): ASTNode = origin(statement, statement match {
     case Statement0(labeled) => convertStat(labeled)
@@ -614,11 +643,11 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
   }
 
   def convertInitializer(init: InitializerContext, t: Type): ASTNode = origin(init, init match {
-    case Initializer0(exp) => expr(exp)
-    case Initializer1("{", xs, "}") =>
+    case Initializer0("{", xs, "}") =>
       convertInitializerList(xs, t)
-    case Initializer2("{", xs, _, "}") =>
+    case Initializer1("{", xs, _, "}") =>
       convertInitializerList(xs, t)
+    case Initializer2(exp) => expr(exp)
   })
 
   def convertInitializerList(xs: InitializerListContext, t: Type): ASTNode = {
@@ -645,9 +674,9 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
   }
 
   def expr(exp: InitializerContext): ASTNode = exp match {
-    case Initializer0(exp) => expr(exp)
-    case Initializer1("{", _, "}") => ??(exp)
-    case Initializer2("{", _, _, "}") => ??(exp)
+    case Initializer0("{", _, "}") => ??(exp)
+    case Initializer1("{", _, _, "}") => ??(exp)
+    case Initializer2(exp) => expr(exp)
   }
 
   def expr(exp: ExpressionContext): ASTNode = exp match {
@@ -665,7 +694,7 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       val operator = op match {
         case "=" => StandardOperator.Assign
         case "*=" => MulAssign
-        case "/=" => StandardOperator.DivAssign
+        case "/=" => StandardOperator.FloorDivAssign
         case "%=" => RemAssign
         case "+=" => AddAssign
         case "-=" => SubAssign
@@ -830,28 +859,32 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       ??(exp)
     case PostfixExpression10(_, _, _, _, _, _, _, _) =>
       ??(exp)
+    case PostfixExpression11(GpgpuCudaKernelInvocation0(name, _, blockCount, _, threadCount, _, _, arguments, _, maybeWithThen)) =>
+      val invocation = create.kernelInvocation(convertID(name), expr(blockCount), expr(threadCount), exprList(arguments):_*)
+      maybeWithThen.toSeq.flatMap(convertValWithThen).foreach(invocation.get_after.addStatement(_))
+      invocation
   })
 
   def expr(exp: PrimaryExpressionContext): ASTNode = origin(exp, exp match {
-    case PrimaryExpression0(id) => convertIDName(id)
-    case PrimaryExpression1(const) =>
+    case PrimaryExpression0(valPrimary) =>
+      valExpr(valPrimary)
+    case PrimaryExpression1(id) => convertIDName(id)
+    case PrimaryExpression2(const) =>
       // Floats are also tokenized as this const, so we should distinguish here
       create constant const.toInt
-    case PrimaryExpression2(strings) =>
+    case PrimaryExpression3(strings) =>
       // Pretty sure this completely ignores escape sequences, but we don't support strings anyway...
       // See also JavaJMLtoCOL Literal3
       create constant strings.mkString("")
-    case PrimaryExpression3("(", exp, ")") => expr(exp)
-    case PrimaryExpression4(genericSelection) =>
+    case PrimaryExpression4("(", exp, ")") => expr(exp)
+    case PrimaryExpression5(genericSelection) =>
       ??(genericSelection)
-    case PrimaryExpression5(_, _, _, _) =>
+    case PrimaryExpression6(_, _, _, _) =>
       ??(exp)
-    case PrimaryExpression6("__builtin_va_arg", _, _, _, _, _) =>
+    case PrimaryExpression7("__builtin_va_arg", _, _, _, _, _) =>
       ??(exp)
-    case PrimaryExpression7("__builtin_offsetof", _, _, _, _, _) =>
+    case PrimaryExpression8("__builtin_offsetof", _, _, _, _, _) =>
       ??(exp)
-    case PrimaryExpression8(valPrimary) =>
-      valExpr(valPrimary)
   })
 
   def exprList(tree: ArgumentExpressionListContext): Seq[ASTNode] = tree match {
@@ -908,6 +941,10 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       builder.context(expr(exp))
     case ValContractClause8(_loop_invariant, exp, _) =>
       builder.appendInvariant(expr(exp))
+    case ValContractClause9(_kernel_invariant, exp, _) =>
+      builder.appendKernelInvariant(expr(exp))
+    case ValContractClause10(_signals, _, signalsType, name, _, condition, _) =>
+      builder.signals(origin(clause, new SignalsClause(convertID(name), convertType(signalsType), expr(condition))))
   }
 
   def convertValBlock(block: ValBlockContext): BlockStatement = origin(block, block match {
@@ -993,7 +1030,7 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       create special (ASTSpecial.Kind.ActionHeader, expr(arg1), expr(arg2), expr(arg3), expr(arg4))
     case ValStatement30(_atomic, _, resList, _, stat) =>
       create csl_atomic(create block(convertValStat(stat):_*), resList.map(convertValExpList).getOrElse(Seq()).map {
-        case name: NameExpression if name.getKind == NameExpression.Kind.Unresolved =>
+        case name: NameExpression if name.getKind == NameExpressionKind.Unresolved =>
           create label name.getName
         case other => other
       }:_*)
@@ -1046,33 +1083,37 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
       create expression(Length, expr(exp))
     case ValPrimary14("\\old", "(", exp, ")") =>
       create expression(Old, expr(exp))
-    case ValPrimary15("\\id", "(", exp, ")") =>
-      create expression(Identity, expr(exp))
-    case ValPrimary16("\\typeof", "(", exp, ")") =>
+    case ValPrimary15("\\typeof", "(", exp, ")") =>
       create expression(TypeOf, expr(exp))
-    case ValPrimary17("\\matrix", "(", m, _, size0, _, size1, ")") =>
+    case ValPrimary16("\\matrix", "(", m, _, size0, _, size1, ")") =>
       create expression(ValidMatrix, expr(m), expr(size0), expr(size1))
-    case ValPrimary18("\\array", "(", a, _, size0, ")") =>
+    case ValPrimary17("\\array", "(", a, _, size0, ")") =>
       create expression(ValidArray, expr(a), expr(size0))
-    case ValPrimary19("\\pointer", "(", p, _, size0, _, perm, ")") =>
+    case ValPrimary18("\\pointer", "(", p, _, size0, _, perm, ")") =>
       create expression(ValidPointer, expr(p), expr(size0), expr(perm))
-    case ValPrimary20("\\pointer_index", "(", p, _, idx, _, perm, ")") =>
+    case ValPrimary19("\\pointer_index", "(", p, _, idx, _, perm, ")") =>
       create expression(ValidPointerIndex, expr(p), expr(idx), expr(perm))
-    case ValPrimary21("\\values", "(", a, _, fr, _, to, ")") =>
+    case ValPrimary20("\\values", "(", a, _, fr, _, to, ")") =>
       create expression(Values, expr(a), expr(fr), expr(to))
-    case ValPrimary22("\\sum", "(", a, _, b, ")") =>
+    case ValPrimary21("\\sum", "(", a, _, b, ")") =>
       create expression(FoldPlus, expr(a), expr(b))
-    case ValPrimary23("\\vcmp", "(", a, _, b, ")") =>
+    case ValPrimary22("\\vcmp", "(", a, _, b, ")") =>
       create expression(VectorCompare, expr(a), expr(b))
-    case ValPrimary24("\\vrep", "(", v, ")") =>
+    case ValPrimary23("\\vrep", "(", v, ")") =>
       create expression(VectorRepeat, expr(v))
-    case ValPrimary25("\\msum", "(", a, _, b, ")") =>
+    case ValPrimary24("\\msum", "(", a, _, b, ")") =>
       create expression(MatrixSum, expr(a), expr(b))
-    case ValPrimary26("\\mcmp", "(", a, _, b, ")") =>
+    case ValPrimary25("\\mcmp", "(", a, _, b, ")") =>
       create expression(MatrixCompare, expr(a), expr(b))
-    case ValPrimary27("\\mrep", "(", m, ")") =>
+    case ValPrimary26("\\mrep", "(", m, ")") =>
       create expression(MatrixRepeat, expr(m))
-    case ValPrimary28("Reducible", "(", exp, _, opNode, ")") =>
+    case ValPrimary27(label, _, exp) =>
+      val res = expr(exp)
+      res.addLabel(create label(convertID(label)))
+      res
+    case ValPrimary28("{:", pattern, ":}") =>
+      create pattern expr(pattern)
+    case ValPrimary29("Reducible", "(", exp, _, opNode, ")") =>
       val opText = opNode match {
         case ValReducibleOperator0("+") => "+"
         case ValReducibleOperator1(id) => convertID(id)
@@ -1082,10 +1123,90 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
         case "min" => ReducibleMin
         case "max" => ReducibleMax
       }, expr(exp))
-    case ValPrimary29(label, _, exp) =>
-      val res = expr(exp)
-      res.addLabel(create label(convertID(label)))
-      res
+    case ValPrimary30("AbstractState", _, arg1, _, arg2, _) =>
+      create expression(StandardOperator.AbstractState, expr(arg1), expr(arg2))
+    case ValPrimary31("AddsTo", _, arg1, _, arg2, _) =>
+      create expression(StandardOperator.AddsTo, expr(arg1), expr(arg2))
+    case ValPrimary32("APerm", _, loc, _, perm, _) =>
+      create expression(StandardOperator.ActionPerm, expr(loc), expr(perm))
+    case ValPrimary33("ArrayPerm", _, ar, _, fst, _, step, _, cnt, _, perm, _) =>
+      create expression(StandardOperator.ArrayPerm, expr(ar), expr(fst), expr(step), expr(cnt), expr(perm))
+    case ValPrimary34("buildMap", _, map, _, k, _, v, _) =>
+      create expression(StandardOperator.MapBuild, expr(map), expr(k), expr(v))
+    case ValPrimary35("cardMap", _, map, _) =>
+      create expression(StandardOperator.MapCardinality, expr(map))
+    case ValPrimary36("Contribution", _, res, _, con, _) =>
+      create expression(StandardOperator.Contribution, expr(res), expr(con))
+    case ValPrimary37("disjointMap", _, map1, _, map2, _) =>
+      create expression(StandardOperator.MapDisjoint, expr(map1), expr(map2))
+    case ValPrimary38("equalsMap", _, map1, _, map2, _) =>
+      create expression(StandardOperator.MapEquality, expr(map1), expr(map2))
+    case ValPrimary39("Future", _, arg1, _, arg2, _, arg3, _) =>
+      create expression(StandardOperator.Future, expr(arg1), expr(arg2), expr(arg3))
+    case ValPrimary40("getFromMap", _, map, _, k, _) =>
+      create expression(StandardOperator.MapGetByKey, expr(map), expr(k))
+    case ValPrimary41("getFst", _, tup, _) =>
+      create expression(StandardOperator.TupleFst, expr(tup))
+    case ValPrimary42("getOption", _, opt, _) =>
+      create expression(StandardOperator.OptionGet, expr(opt))
+    case ValPrimary43("getSnd", _, tup, _) =>
+      create expression(StandardOperator.TupleSnd, expr(tup))
+    case ValPrimary44("head", _, seq, _) =>
+      create expression(StandardOperator.Head, expr(seq))
+    case ValPrimary45("held", _, lock, _) =>
+      create expression(StandardOperator.Held, expr(lock))
+    case ValPrimary46("Hist", _, arg1, _, arg2, _, arg3, _) =>
+      create expression(StandardOperator.History, expr(arg1), expr(arg2), expr(arg3))
+    case ValPrimary47("HPerm", _, loc, _, perm, _) =>
+      create expression(StandardOperator.HistoryPerm, expr(loc), expr(perm))
+    case ValPrimary48("idle", _, arg, _) =>
+      create expression(StandardOperator.PVLidleToken, expr(arg))
+    case ValPrimary49("isEmpty", _, seq, _) =>
+      create expression(StandardOperator.Empty, expr(seq))
+    case ValPrimary50("itemsMap", _, map, _) =>
+      create expression(StandardOperator.MapItemSet, expr(map))
+    case ValPrimary51("keysMap", _, map, _) =>
+      create expression(StandardOperator.MapKeySet, expr(map))
+    case ValPrimary52("perm", _, loc, _) =>
+      create expression(StandardOperator.CurrentPerm, expr(loc))
+    case ValPrimary53("Perm", _, loc, _, perm, _) =>
+      create expression(StandardOperator.Perm, expr(loc), expr(perm))
+    case ValPrimary54("PointsTo", _, loc, _, perm, _, value, _) =>
+      create expression(StandardOperator.PointsTo, expr(loc), expr(perm), expr(value))
+    case ValPrimary55(_removeAt, _, seq, _, i, _) =>
+      create expression(StandardOperator.RemoveAt, expr(seq), expr(i))
+    case ValPrimary56("removeFromMap", _, map, _, arg, _) =>
+      create expression(StandardOperator.MapRemoveKey, expr(map), expr(arg))
+    case ValPrimary57("running", _, arg, _) =>
+      create expression(StandardOperator.PVLjoinToken, expr(arg))
+    case ValPrimary58("Some", _, arg, _) =>
+      create expression(StandardOperator.OptionSome, expr(arg))
+    case ValPrimary59("tail", _, seq, _) =>
+      create expression(StandardOperator.Tail, expr(seq))
+    case ValPrimary60("Value", _, arg, _) =>
+      create expression(StandardOperator.Value, expr(arg))
+    case ValPrimary61("valuesMap", _, map, _) =>
+      create expression(StandardOperator.MapValueSet, expr(map))
+    case ValPrimary62("seq", "<", t, ">", "{", elems, "}") =>
+      create struct_value(create.primitive_type(PrimitiveSort.Sequence, convertType(t)), null, convertValExpList(elems):_*)
+    case ValPrimary63("set", "<", t, ">", "{", elems, "}") =>
+      create struct_value(create.primitive_type(PrimitiveSort.Set, convertType(t)), null, convertValExpList(elems):_*)
+    case ValPrimary64("(", seq, "[", "..", end, "]", ")") =>
+      create expression(Take, expr(seq), expr(end))
+    case ValPrimary65("(", seq, "[", start, "..", None, "]", ")") =>
+      create expression(Drop, expr(seq), expr(start))
+    case ValPrimary65("(", seq, "[", start, "..", Some(end), "]", ")") =>
+      create expression(Slice, expr(seq), expr(start), expr(end))
+    case ValPrimary66("(", seq, "[", idx, "->", replacement, "]", ")") =>
+      create expression(SeqUpdate, expr(seq), expr(idx), expr(replacement))
+    case ValPrimary67("(", x, "::", xs, ")") =>
+      create expression(PrependSingle, expr(x), expr(xs))
+    case ValPrimary68("(", xs, "++", ys, ")") =>
+      create expression(Concat, expr(xs), expr(ys))
+    case ValPrimary69("(", x, "\\in", xs, ")") =>
+      create expression(Member, expr(x), expr(xs))
+    case ValPrimary70("getOrElseOption", "(", opt, ",", alt, ")") =>
+      create expression(OptionGetOrElse, expr(opt), expr(alt))
   })
 
   def convertValOp(op: ValImpOpContext): StandardOperator = op match {
@@ -1101,23 +1222,33 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
     case ValMulOp0("\\") => StandardOperator.Div
   }
 
-  def convertValReserved(reserved: ValReservedContext): NameExpression = origin(reserved, reserved match {
+  def convertValReserved(reserved: ValReservedContext): ASTNode = origin(reserved, reserved match {
     case ValReserved0(_) =>
       fail(reserved, "This identifier is reserved and cannot be declared or used.")
-    case ValReserved1("\\result") =>
+    case ValReserved1(s) =>
+      create unresolved_name(s.substring(1, s.length-1))
+    case ValReserved2("\\result") =>
       create reserved_name ASTReserved.Result
-    case ValReserved2("\\current_thread") =>
+    case ValReserved3("\\current_thread") =>
       create reserved_name ASTReserved.CurrentThread
-    case ValReserved3("none") =>
+    case ValReserved4("none") =>
       create reserved_name ASTReserved.NoPerm
-    case ValReserved4("write") =>
+    case ValReserved5("write") =>
       create reserved_name ASTReserved.FullPerm
-    case ValReserved5("read") =>
+    case ValReserved6("read") =>
       create reserved_name ASTReserved.ReadPerm
-    case ValReserved6("None") =>
+    case ValReserved7("None") =>
       create reserved_name ASTReserved.OptionNone
-    case ValReserved7("empty") =>
+    case ValReserved8("empty") =>
       create reserved_name ASTReserved.EmptyProcess
+    case ValReserved9("\\ltid") =>
+      create reserved_name ASTReserved.LocalThreadId
+    case ValReserved10("\\gtid") =>
+      create reserved_name ASTReserved.GlobalThreadId
+    case ValReserved11("true") =>
+      create constant true
+    case ValReserved12("false") =>
+      create constant false
   })
 
   /**
@@ -1128,13 +1259,18 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
    */
   def convertOverlappingValReservedID(reserved: ValReservedContext): String = reserved match {
     case ValReserved0(s) => s
-    case ValReserved1("\\result") => fail(reserved, "This identifier is invalid in the current language")
-    case ValReserved2("\\current_thread") => fail(reserved, "This identifier is invalid in the current language")
-    case ValReserved3(s) => s
+    case ValReserved1(s) => fail(reserved, "This identifier is invalid in the current language")
+    case ValReserved2("\\result") => fail(reserved, "This identifier is invalid in the current language")
+    case ValReserved3("\\current_thread") => fail(reserved, "This identifier is invalid in the current language")
     case ValReserved4(s) => s
     case ValReserved5(s) => s
     case ValReserved6(s) => s
     case ValReserved7(s) => s
+    case ValReserved8(s) => s
+    case ValReserved9("\\ltid") => fail(reserved, "This identifier is invalid in the current language")
+    case ValReserved10("\\gtid") => fail(reserved, "This identifier is invalid in the current language")
+    case ValReserved11(s) => s
+    case ValReserved12(s) => s
   }
 
   def convertOverlappingValReservedName(reserved: ValReservedContext): NameExpression =
@@ -1171,6 +1307,14 @@ class CMLtoCOL(fileName: String, tokens: CommonTokenStream, parser: CParser)
     }
     case ValType1("seq", _, subType, _) =>
       create primitive_type(PrimitiveSort.Sequence, convertType(subType))
+    case ValType2("set", _, subType, _) =>
+      create primitive_type(PrimitiveSort.Set, convertType(subType))
+    case ValType3("bag", _, subType, _) =>
+      create primitive_type(PrimitiveSort.Bag, convertType(subType))
+    case ValType4("loc", _, subType, _) =>
+      create primitive_type(PrimitiveSort.Location, convertType(subType))
+    case ValType5("pointer", _, subType, _) =>
+      create primitive_type(PrimitiveSort.Pointer, convertType(subType))
   })
 
   def convertValArg(arg: ValArgContext): DeclarationStatement = origin(arg, arg match {

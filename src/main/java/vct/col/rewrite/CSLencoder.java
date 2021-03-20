@@ -51,18 +51,19 @@ public class CSLencoder extends AbstractRewriter {
   
   @Override
   public void visit(Method m){
+    /*
     if(m.kind==Method.Kind.Constructor && has_csl_inv((ASTClass)m.getParent())){
       Method.Kind kind=Method.Kind.Constructor;
       ContractBuilder cb=new ContractBuilder();
       rewrite(m.getContract(),cb);
-      cb.ensures(create.invokation(null,null,"csl_invariant"));
+      cb.ensures(create.invokation(create.diz(),null,"csl_invariant"));
       String name = m.name();
       DeclarationStatement args[]=rewrite(m.getArgs());
       BlockStatement body;
       if (m.getBody()!=null){
         body=(BlockStatement)rewrite(m.getBody());
         body.addStatement(create.special(ASTSpecial.Kind.Fold,
-            create.invokation(null,null,"csl_invariant")
+            create.invokation(create.diz(),null,"csl_invariant")
         ));   
       } else {
         body=null;
@@ -72,7 +73,9 @@ public class CSLencoder extends AbstractRewriter {
       result=create.method_kind(kind, returns, contract, name, args, m.usesVarArgs(), body);
     } else {
       super.visit(m);
-    }
+    }*/
+    // TODO PB: disabling this is unsound, but this logic cannot be combined with JavaEncoder: it was already disabled accidentally.
+    super.visit(m);
   }
   
   private AtomicInteger count=new AtomicInteger();
@@ -120,7 +123,7 @@ public class CSLencoder extends AbstractRewriter {
         subjects.add(create.reserved_name(ASTReserved.This));
       }
       InlineMethod inline=new InlineMethod(source());
-      inline.inline(block,result_name,return_label,m,e.object,e.getArgs(),e.getOrigin());    
+      inline.inline(block,result_name,return_label,m,e.object(),e.getArgs(),e.getOrigin());
       block.add(create.special(ASTSpecial.Kind.Label,create.label(return_label)));
       Hashtable<NameExpression, ASTNode> map=new Hashtable<NameExpression, ASTNode>();
       Substitution sigma=new Substitution(source(),map);
@@ -130,7 +133,7 @@ public class CSLencoder extends AbstractRewriter {
       }
       currentBlock.add(create.csl_atomic(block,subjects.toArray(new ASTNode[0])));
       if (m.getReturnType().isVoid()){
-        result=create.comment("// dummy");
+        result=null;
       } else {
         result=create.local_name(result_name);
       }

@@ -4,8 +4,7 @@ import vct.col.ast.expr.*;
 import vct.col.ast.expr.constant.ConstantExpression;
 import vct.col.ast.expr.constant.StructValue;
 import vct.col.ast.generic.ASTNode;
-import vct.col.ast.langspecific.*;
-import vct.col.ast.langspecific.c.CFunctionType;
+import vct.col.ast.langspecific.c.*;
 import vct.col.ast.stmt.composite.*;
 import vct.col.ast.stmt.decl.*;
 import vct.col.ast.stmt.terminal.AssignmentStatement;
@@ -116,4 +115,10 @@ public interface ASTMapping1<R,A1> {
   public R map(OMPFor loop, A1 arg);
   public R map(OMPParallelFor loop, A1 arg);
   public R map(OMPForSimd loop, A1 arg);
+
+  public R map(InlineQuantifierPattern pattern, A1 arg);
+  public R map(CatchClause cc, A1 arg);
+  public R map(SignalsClause sc, A1 arg);
+
+  public R map(KernelInvocation ki, A1 arg);
 }

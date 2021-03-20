@@ -14,8 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import vct.col.ast.expr.*;
 import vct.col.ast.expr.constant.ConstantExpression;
 import vct.col.ast.expr.constant.StructValue;
-import vct.col.ast.langspecific.*;
-import vct.col.ast.langspecific.c.CFunctionType;
+import vct.col.ast.langspecific.c.*;
 import vct.col.ast.stmt.composite.*;
 import vct.col.ast.stmt.decl.*;
 import vct.col.ast.util.ASTMapping1;
@@ -152,8 +151,8 @@ class MatchLinear implements ASTMapping1<Boolean,ASTNode> {
   public Boolean map(MethodInvokation e, ASTNode a) {
     if (a instanceof MethodInvokation){
       MethodInvokation ee=(MethodInvokation)a;
-      if (!e.method.equals(ee.method)) return false;
-      if (!e.object.apply(this,ee.object)) return false;
+      if (!e.method().equals(ee.method())) return false;
+      if (!e.object().apply(this,ee.object())) return false;
       int N=e.getArity();
       for(int i=0;i<N;i++){
         if (!e.getArg(i).apply(this,ee.getArg(i))) return false;
@@ -230,8 +229,8 @@ class MatchLinear implements ASTMapping1<Boolean,ASTNode> {
           Configuration.getDiagSyntax().print(e),
           Configuration.getDiagSyntax().print(a));
       ref.set(ee_decl);
-      if (ee.binder!=e.binder) return false;
-      return e.select.apply(this,ee.select) && e.main.apply(this,ee.main);
+      if (ee.binder()!=e.binder()) return false;
+      return e.select().apply(this,ee.select()) && e.main().apply(this,ee.main());
     } else {
       throw new HREError("non-linear left-hand side");
     }
@@ -431,6 +430,25 @@ class MatchLinear implements ASTMapping1<Boolean,ASTNode> {
     return null;
   }
 
+  @Override
+  public Boolean map(InlineQuantifierPattern pattern, ASTNode arg) {
+    return null;
+  }
+
+  public Boolean map(CatchClause cc, ASTNode arg) {
+    return null;
+  }
+
+  @Override
+  public Boolean map(SignalsClause sc, ASTNode arg) {
+    return null;
+  }
+
+  @Override
+  public Boolean map(KernelInvocation ki, ASTNode arg) {
+    return null;
+  }
+
 }
 
 class MatchSubstitution extends AbstractRewriter {
@@ -460,7 +478,7 @@ class MatchSubstitution extends AbstractRewriter {
   
   @Override
   public void visit(NameExpression e){
-    if (e.getKind()==NameExpression.Kind.Reserved) {
+    if (e.getKind()== NameExpressionKind.Reserved) {
       super.visit(e);
       return;
     }
@@ -501,17 +519,17 @@ class MatchSubstitution extends AbstractRewriter {
       }
       decls[i]=create.field_decl(dref.name(), rewrite(dref.getType()), rewrite(decls[i].initJava()));
     }
-    if (e.binder== Binder.Let){
+    if (e.binder() == Binder.Let){
       HashMap<NameExpression, ASTNode> map=new HashMap<NameExpression, ASTNode>();
       for(int i=0;i<decls.length;i++){
         map.put(create.local_name(decls[i].name()), decls[i].initJava());
       }
       Substitution sigma=new Substitution(source(),map);
-      ASTNode tmp=rewrite(e.main);
+      ASTNode tmp=rewrite(e.main());
       ASTNode res=sigma.rewrite(tmp);
       result=res;
     } else {
-      result=create.binder(e.binder,rewrite(e.result_type),decls,rewrite(e.triggers),rewrite(e.select),rewrite(e.main));
+      result=create.binder(e.binder(),rewrite(e.result_type()),decls,rewrite(e.javaTriggers()),rewrite(e.select()),rewrite(e.main()));
     }
   }
 
@@ -622,10 +640,6 @@ public class RewriteSystem {
         continue;
       }
       if (d instanceof Method && ((Method)d).kind==Method.Kind.Constructor){
-        continue;
-      }
-      if (d instanceof ASTSpecial &&
-         ((ASTSpecial)d).kind==ASTSpecial.Kind.Comment) {
         continue;
       }
       d.getOrigin().report("fatal","unexpected item in rewrite system: %s",d);

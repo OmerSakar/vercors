@@ -1,7 +1,9 @@
 package vct.col.rewrite;
 
 import java.util.HashMap;
+import java.util.HashSet;
 
+import vct.col.ast.expr.NameExpressionKind;
 import vct.col.ast.stmt.decl.ASTFlags;
 import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.composite.BlockStatement;
@@ -25,6 +27,8 @@ public class FinalizeArguments extends AbstractRewriter {
     super(source);
   }
 
+  private HashSet<String> currentArgumentLocals = new HashSet<>();
+
   public void visit(Method m) {
     switch(m.kind){
       case Constructor:
@@ -46,6 +50,7 @@ public class FinalizeArguments extends AbstractRewriter {
         for(int i=0;i<N;i++){
           String old_name=m.getArgument(i);
           String new_name="__"+m.getArgument(i);
+          currentArgumentLocals.add(old_name);
           args[i]=create(old_decls[i].getOrigin()).field_decl(new_name,rewrite(m.getArgType(i)));
           if (old_decls[i].isValidFlag(ASTFlags.GHOST)){
             args[i].setGhost(old_decls[i].isGhost());
@@ -76,6 +81,7 @@ public class FinalizeArguments extends AbstractRewriter {
           }
         }
         result=create.method_kind(kind, rewrite(m.getReturnType()),c, name, args, block);
+        currentArgumentLocals.clear();
         break;
       }
       default:
@@ -91,7 +97,7 @@ public class FinalizeArguments extends AbstractRewriter {
         ASTNode arg=e.arg(0);
         if (arg instanceof NameExpression){
           NameExpression name=(NameExpression)arg;
-          if (name.getKind()==NameExpression.Kind.Argument){
+          if (name.getKind()== NameExpressionKind.Argument){
             result=create.argument_name("__"+name.getName());
             break;
           }
@@ -105,4 +111,18 @@ public class FinalizeArguments extends AbstractRewriter {
     }
   }
 
+  @Override
+  public void visit(NameExpression name) {
+    switch(name.kind()) {
+      case Argument:
+        if(currentArgumentLocals.contains(name.name())) {
+          result = create.local_name(name.name());
+        } else {
+          super.visit(name);
+        }
+        break;
+      default:
+        super.visit(name);
+    }
+  }
 }

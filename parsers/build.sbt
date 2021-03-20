@@ -1,7 +1,7 @@
 lazy val antlrTask = taskKey[Seq[File]]("Generate visitors and listeners from ANTLR grammars")
 
-libraryDependencies += "antlr" % "antlr" % "4.8-extractors-1" from
-  "https://github.com/niomaster/antlr4/releases/download/4.8-extractors-1/antlr4.jar"
+libraryDependencies += "antlr" % "antlr" % "4.8-extractors-2" from
+  "https://github.com/niomaster/antlr4/releases/download/4.8-extractors-2/antlr4.jar"
 libraryDependencies += "io.github.nicolasstucki" %% "multisets" % "0.4"
 
 antlrTask := {
@@ -19,7 +19,7 @@ antlrTask := {
           Set(lib / "TestNoSpecLexer.g4")),
         (lib / "LangJavaLexer.g4", false,
           Set(lib / "TestNoSpecLexer.g4")),
-        (src / "PVL.g4", true,
+        (src / "PVLParser.g4", true,
           Set(lib / "TestNoSpecParser.g4", lib / "TestNoSpecLexer.g4")),
         (src / "CParser.g4", true,
           Set(lib / "TestNoSpecParser.g4", lib / "TestNoSpecLexer.g4",
@@ -38,16 +38,19 @@ antlrTask := {
           Set(lib / "SpecLexer.g4", lib / "LangOMPLexer.g4")),
         (lib / "LangJavaLexer.g4", false,
           Set(lib / "SpecLexer.g4")),
-        (src / "PVL.g4", true,
-          Set(lib / "SpecParser.g4", lib / "SpecLexer.g4")),
+        (lib / "LangPVLLexer.g4", false,
+          Set(lib / "SpecLexer.g4")),
+        (src / "PVLParser.g4", true,
+          Set(lib / "LangPVLParser.g4", lib / "LangPVLLexer.g4",
+              lib / "SpecParser.g4", lib / "SpecLexer.g4")),
         (src / "CParser.g4", true,
           Set(lib / "SpecParser.g4", lib / "SpecLexer.g4",
               lib / "LangCParser.g4", lib / "LangCLexer.g4",
-              lib / "LangOMPParser.g4", lib / "LangOMPLexer.g4")),
+              lib / "LangOMPParser.g4", lib / "LangOMPLexer.g4",
+              lib / "LangGPGPUParser.g4", lib / "LangGPGPULexer.g4")),
         (src / "JavaParser.g4", true,
           Set(lib / "SpecParser.g4", lib / "SpecLexer.g4",
               lib / "LangJavaParser.g4", lib / "LangJavaLexer.g4")),
-        (src / "omp.g4", true, Set()),
     )
 
     val allInputFiles: Set[java.io.File] =
@@ -90,3 +93,4 @@ antlrTask := {
 
 sourceGenerators in Compile += (antlrTask in Compile).taskValue
 managedSourceDirectories in Compile += (sourceManaged in Compile).value / "antlr4"
+sources in (Compile, doc) := Seq()

@@ -63,9 +63,9 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
 
     @Override
     public void visit(MethodInvokation e) {
-        if (m.getName().equals(e.method)) {
+        if (m.getName().equals(e.method())) {
 
-            StringBuilder generatedName = new StringBuilder(e.method);
+            StringBuilder generatedName = new StringBuilder(e.method());
             if (e.getArgs() != null && e.getArgs().length > 0) {
                 for (ASTNode arg : e.getArgs()) {
                     generatedName.append("_").append(rewrite(arg.getType()).toString());
@@ -73,7 +73,7 @@ public class GenerateGenericFunctionInstance extends AbstractRewriter {
             }
             generatedName.append("_").append(rewrite(e.getType()).toString());
 
-            result = create.invokation(rewrite(e.object), rewrite(e.dispatch), generatedName.toString(), rewrite(e.getArgs()));
+            result = create.invokation(rewrite(e.object()), rewrite(e.dispatch()), generatedName.toString(), rewrite(e.getArgs()));
         } else {
             super.visit(e);
         }

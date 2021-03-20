@@ -1,10 +1,7 @@
 // -*- tab-width:2 ; indent-tabs-mode:nil -*-
 package vct.col.ast.util;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
 
 import vct.col.ast.expr.*;
@@ -157,7 +154,7 @@ public class ASTFactory<E> implements FrameControl {
    */
   public NameExpression argument_name(String name) {
     NameExpression res=new NameExpression(name);
-    res.setKind(NameExpression.Kind.Argument);
+    res.setKind(NameExpressionKind.Argument);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);
     return res;
@@ -264,9 +261,6 @@ public class ASTFactory<E> implements FrameControl {
   public ClassType class_type(String name, List<ASTNode> args){
     return class_type(origin_stack.get(), name, args);
   }
-  public ASTSpecial comment(String text) {
-    return special(ASTSpecial.Kind.Comment,constant(text));
-  }
 
   public ConstantExpression constant(boolean b) {
     return constant(origin_stack.get(),b);
@@ -349,7 +343,7 @@ public class ASTFactory<E> implements FrameControl {
     origin_stack.enter();
     setOrigin(n.getOrigin());
   }
-
+  
   /**
    * Create a new operator expression.
    */
@@ -405,7 +399,7 @@ public class ASTFactory<E> implements FrameControl {
    */
   public NameExpression field_name(String name) {
     NameExpression res=new NameExpression(name);
-    res.setKind(NameExpression.Kind.Field);
+    res.setKind(NameExpressionKind.Field);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);
     return res;
@@ -418,12 +412,14 @@ public class ASTFactory<E> implements FrameControl {
    * @param list Non-empty list of terms.
    * @return folded list.
    */
-   public ASTNode fold(StandardOperator op, ArrayList<ASTNode> list) {
+   public ASTNode fold(StandardOperator op, List<ASTNode> list) {
      if (list.size()==0){
        switch(op){
        case And:
        case Star:
          return constant(true);
+       case Or:
+         return constant(false);
        default:
          Abort("cannot fold empty list, because neutral element of %s is not implemented",op);
        }
@@ -435,7 +431,28 @@ public class ASTFactory<E> implements FrameControl {
      }
      return res;
    }
-   
+
+   public IfStatement fold(List<IfStatement> list) {
+     if (list.size() == 0) {
+       Abort("cannot fold empty list of ifs");
+     }
+
+     IfStatement currentIf = list.get(0);
+     for (int i = 1; i < list.size(); i++) {
+       IfStatement nextIf = list.get(i);
+
+       // Only the last if can have an else statement
+       if (i != list.size() - 1 && nextIf.hasElse()) {
+         Abort("Only last if in the list is allowed to have an else");
+       }
+
+       currentIf.addClause(IfStatement.elseGuard(), nextIf);
+       currentIf = nextIf;
+     }
+
+     return list.get(0);
+   }
+
    /**
     * Fold left of a non-empty list. 
     * 
@@ -548,13 +565,13 @@ public class ASTFactory<E> implements FrameControl {
    * Create a function declaration
    */
   public Method function_decl(Type returns,Contract contract,String name,DeclarationStatement args[],ASTNode body){
-    return method_kind(Method.Kind.Pure,returns,new DeclarationStatement[0],contract,name,args,false,body);
+    return method_kind(Method.Kind.Pure,name, returns,new Type[0], new DeclarationStatement[0],contract,args,false,body);
   }
 
-  public Method function_decl(Type returns,DeclarationStatement[] typeParameter, Contract contract,String name,DeclarationStatement args[],ASTNode body){
-    return method_kind(Method.Kind.Pure,returns,typeParameter,contract,name,args,false,body);
+  public Method function_decl(Type returns,DeclarationStatement[] typeParameters, Contract contract,String name,DeclarationStatement args[],ASTNode body){
+    return method_kind(Method.Kind.Pure,name,returns,new Type[0], typeParameters,contract,args,false,body);
   }
-
+  
   /**
    * Get the current origin. 
    */
@@ -566,7 +583,7 @@ public class ASTFactory<E> implements FrameControl {
    */
   public NameExpression identifier(String name){
     NameExpression res=new NameExpression(name);
-    res.setKind(NameExpression.Kind.Unresolved);
+    res.setKind(NameExpressionKind.Unresolved);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);
     return res;
@@ -612,16 +629,27 @@ public class ASTFactory<E> implements FrameControl {
     return invokation(object,dispatch,method,args.toArray(new ASTNode[args.size()]));
   }
 
+  public KernelInvocation kernelInvocation(String method, ASTNode blockCount, ASTNode threadCount, ASTNode... args) {
+    return kernelInvocation(origin_stack.get(), method, blockCount, threadCount, args);
+  }
+
+  public KernelInvocation kernelInvocation(Origin o, String method, ASTNode blockCount, ASTNode threadCount, ASTNode... args) {
+    KernelInvocation result = new KernelInvocation(method, blockCount, threadCount, args);
+    result.setOrigin(o);
+    return result;
+  }
+
   /**
    * Create a name expression that refers to a label.
    */
   public NameExpression label(String name) {
     NameExpression res=new NameExpression(name);
-    res.setKind(NameExpression.Kind.Label);
+    res.setKind(NameExpressionKind.Label);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);
     return res;
   }
+
   /**
    * Leave the current stack frame of the origin stack.
    */
@@ -640,7 +668,7 @@ public class ASTFactory<E> implements FrameControl {
    */
   public NameExpression local_name(Origin origin, String name) {
     NameExpression res=new NameExpression(name);
-    res.setKind(NameExpression.Kind.Local);
+    res.setKind(NameExpressionKind.Local);
     res.setOrigin(origin);
     res.accept_if(post);
     return res;
@@ -650,37 +678,53 @@ public class ASTFactory<E> implements FrameControl {
     return local_name(origin_stack.get(), name);
   }
 
+  public Method final_method_decl(Type returns, Contract contract, String name, DeclarationStatement[] args, ASTNode body) {
+    Method result = method_decl(returns, contract, name, args, body);
+    result.setFlag(ASTFlags.FINAL, true);
+    return result;
+  }
+
   /**
    * Create a method declaration
    */
-  public Method method_decl(Type returns,Contract contract,String name,DeclarationStatement args[],ASTNode body){
-    return method_kind(Method.Kind.Plain,returns,new DeclarationStatement[0],contract,name,args,false,body);
+  public Method method_decl(Type returns,Contract contract,String name,DeclarationStatement[] args,ASTNode body){
+    return method_kind(Method.Kind.Plain,name, returns,new Type[0], new DeclarationStatement[0],contract,args,false,body);
   }
-  public Method method_decl(Type returns,Contract contract,String name,List<DeclarationStatement> args,ASTNode body){
-    return method_kind(Method.Kind.Plain,returns,new DeclarationStatement[0],contract,name,args.toArray(new DeclarationStatement[args.size()]),false,body);
+  public Method method_decl(Type returns, Type[] signals, Contract contract,String name,DeclarationStatement[] args,ASTNode body){
+    return method_kind(Method.Kind.Plain,name,returns,signals,new DeclarationStatement[0], contract,args,false,body);
   }
 
-  public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameters,Contract contract,String name,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    Method res=new Method(kind,name,returns,new Type[0], typeParameters,contract,args,varArgs,body);
+  public Method method_decl(Type returns,Contract contract,String name,List<DeclarationStatement> args,ASTNode body){
+    return method_kind(Method.Kind.Plain,name, returns,new Type[0], new DeclarationStatement[0],contract,args.toArray(new DeclarationStatement[args.size()]),false,body);
+  }
+
+  /**
+   * Create a method declaration
+   */
+  public Method method_kind(Method.Kind kind,Type returns, Type[] signals, Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){
+    return method_kind(kind,name, returns, signals, new DeclarationStatement[0], contract,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
+  }
+
+  public Method method_kind(Method.Kind kind,String name,Type returns, Type[] signals, DeclarationStatement[] typeParameters, Contract contract,DeclarationStatement[] args,boolean varArgs,ASTNode body){
+    Method res=new Method(kind,name,returns,signals,typeParameters,contract,args,varArgs,body);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);
     return res;
   }
 
   public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,DeclarationStatement args[],ASTNode body){
-    return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,false,body);
+    return method_kind(kind,name,returns,new Type[0],new DeclarationStatement[0],contract,args,false,body);
   }
 
   public Method method_kind(Method.Kind kind,Type returns,Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){
-    return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
+    return method_kind(kind,name,returns,new Type[0],new DeclarationStatement[0],contract,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
   }
-
   public Method method_kind(Method.Kind kind,Type returns,DeclarationStatement[] typeParameters,Contract contract,String name,List<DeclarationStatement> args,boolean varArgs,ASTNode body){
-    return method_kind(kind,returns,typeParameters,contract,name,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
+    return method_kind(kind,name, returns,new Type[0], typeParameters,contract,args.toArray(new DeclarationStatement[args.size()]),varArgs,body);
   }
 
   public Method method_kind(Method.Kind kind,Type returns,Contract contract, String name,DeclarationStatement args[],boolean varArgs,ASTNode body) {
-    return method_kind(kind,returns,new DeclarationStatement[0],contract,name,args,varArgs,body);
+    return method_kind(kind,name, returns,new Type[0], new DeclarationStatement[0],contract,args,varArgs,body);
   }
 
   /**
@@ -688,7 +732,7 @@ public class ASTFactory<E> implements FrameControl {
    */
   public NameExpression method_name(Origin origin,String name){
     NameExpression res=new NameExpression(name);
-    res.setKind(NameExpression.Kind.Method);
+    res.setKind(NameExpressionKind.Method);
     res.setOrigin(origin);
     res.accept_if(post);
     return res;
@@ -700,7 +744,7 @@ public class ASTFactory<E> implements FrameControl {
   /**
    * Create a name expression that refers to a specific kind.
    */
-  public NameExpression name(NameExpression.Kind kind,ASTReserved word,String name) {
+  public NameExpression name(NameExpressionKind kind, ASTReserved word, String name) {
     NameExpression res=new NameExpression(kind,word,name);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);
@@ -843,7 +887,7 @@ public class ASTFactory<E> implements FrameControl {
    * Create a predicate declaration.
    */
   public Method predicate(String name, ASTNode body,DeclarationStatement ... args) {
-    return method_kind(Method.Kind.Predicate,primitive_type(PrimitiveSort.Resource),new DeclarationStatement[0],null,name,args,false,body);
+    return method_kind(Method.Kind.Predicate,name, primitive_type(PrimitiveSort.Resource),new Type[0],new DeclarationStatement[0],null,args,false,body);
   } 
   
   public Method predicate(String name, ASTNode body,List<DeclarationStatement> args) {
@@ -1017,7 +1061,32 @@ public ASTSpecial special(Origin origin, ASTSpecial.Kind kind, ASTNode ... args)
     }
     return res;
   }
-  
+
+  /**
+   *
+   * @param resultType The type of the element in the resulting set.
+   * @param selector The condition to include an element in the set.
+   * @param main The expression that has to be part of the resulting set.
+   * @param varBounds The conditions specifiying the bounds of the declared variables.
+   * @param decl The declared variables.
+   * @return
+   */
+  public ASTNode setComp(Type resultType, ASTNode selector, ASTNode main, Map<NameExpression, ASTNode> varBounds, DeclarationStatement[] decl) {
+    if (decl.length == 0) {
+      Fail("For set comprehension, at least one declaration is needed.");
+    }
+    SetComprehension res = new SetComprehension(
+            resultType,
+            decl,
+            selector,
+            main,
+            varBounds
+    );
+    res.setOrigin(origin_stack.get());
+    res.accept_if(post);
+    return res;
+  }
+
   public ASTNode forall(ASTNode triggers[][],ASTNode guard, ASTNode claim, DeclarationStatement ... decl) {
     // Single quantifier is needed for correct triggering of axioms. 
     if (decl.length==0){
@@ -1046,12 +1115,19 @@ public ASTNode this_expression(ClassType t) {
   return res;
 }
 
+public ASTNode diz() {
+  NameExpression result = new NameExpression(ASTReserved.This);
+  result.setOrigin(origin_stack.get());
+  result.accept_if(post);
+  return result;
+}
+
 /**
  * Create a name expression that refers to an unresolved name.
  */
 public NameExpression unresolved_name(String name) {
   NameExpression res=new NameExpression(name);
-  res.setKind(NameExpression.Kind.Unresolved);
+  res.setKind(NameExpressionKind.Unresolved);
   res.setOrigin(origin_stack.get());
   res.accept_if(post);
   return res;
@@ -1204,7 +1280,7 @@ public Axiom axiom(String name, ASTNode exp){
     res.accept_if(post);
     return res;
   }
-
+  
   public NameSpace namespace(String ... name){
     return namespace(origin_stack.get(),name);
   }
@@ -1389,8 +1465,12 @@ public Axiom axiom(String name, ASTNode exp){
     return special(kind,names.toArray(new ASTNode[names.size()]));
   }
 
-  public ASTNode switch_statement(ASTNode expr, ArrayList<Case> case_list) {
-    Switch res=new Switch(expr,case_list.toArray(new Case[case_list.size()]));
+  public ASTNode switch_statement(ASTNode expr, List<Case> cases) {
+    return switch_statement(expr, cases.toArray(new Case[cases.size()]));
+  }
+
+  public ASTNode switch_statement(ASTNode expr, Case[] cases) {
+    Switch res=new Switch(expr, cases);
     res.setOrigin(origin_stack.get());
     res.accept_if(post);    
     return res;
@@ -1442,6 +1522,52 @@ public Axiom axiom(String name, ASTNode exp){
     Synchronized sync = new Synchronized(expr, statement);
     sync.setOrigin(origin);
     return sync;
+  }
+
+  public InlineQuantifierPattern pattern(ASTNode inner) {
+    return pattern(origin_stack.get(), inner);
+  }
+
+  public InlineQuantifierPattern pattern(Origin origin, ASTNode inner) {
+    InlineQuantifierPattern pattern = new InlineQuantifierPattern(inner);
+    pattern.setOrigin(origin);
+    return pattern;
+  }
+
+  public ASTSpecial gotoStatement(NameExpression label) {
+    return special(ASTSpecial.Kind.Goto, label);
+  }
+
+  public ASTSpecial gotoStatement(String targetLabel) {
+    return special(ASTSpecial.Kind.Goto, label(targetLabel));
+  }
+
+  public ASTSpecial labelDecl(String labelName) {
+    return labelDecl(label(labelName));
+  }
+
+  public ASTSpecial labelDecl(NameExpression label) {
+    return special(Kind.Label, label);
+  }
+
+  public CatchClause catchClause(String name, Type[] types, BlockStatement block) {
+    return catchClause(origin_stack.get(), name, types, block);
+  }
+
+  public CatchClause catchClause(Origin origin, String name, Type[] types, BlockStatement block) {
+    CatchClause cc = new CatchClause(name, types, block);
+    cc.setOrigin(origin);
+    return cc;
+  }
+
+  public SignalsClause signalsClause(String name, Type type, ASTNode condition) {
+    return signalsClause(origin_stack.get(), name, type, condition);
+  }
+
+  public SignalsClause signalsClause(Origin origin, String name, Type type, ASTNode condition) {
+    SignalsClause sc = new SignalsClause(name, type, condition);
+    sc.setOrigin(origin);
+    return sc;
   }
 }
 

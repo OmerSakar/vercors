@@ -3,11 +3,14 @@ package vct.col.ast.stmt.decl;
 
 import java.util.*;
 
+import hre.ast.Origin;
+import scala.Option;
 import hre.ast.MessageOrigin;
 import scala.collection.Iterable;
 import scala.collection.JavaConverters;
 import vct.col.ast.expr.*;
 import vct.col.ast.expr.constant.ConstantExpression;
+import vct.col.ast.generic.ASTList;
 import vct.col.ast.util.ASTMapping;
 import vct.col.ast.util.ASTMapping1;
 import vct.col.ast.generic.ASTNode;
@@ -27,7 +30,7 @@ import static hre.lang.System.Debug;
 public class Method extends ASTDeclaration {
 
   public static final String JavaConstructor = "<<constructor>>";
-  public final Type[] throwy;
+  public final Type[] signals;
 
   @Override
   public <R,A> R accept_simple(ASTMapping1<R,A> map, A arg){
@@ -53,7 +56,7 @@ public class Method extends ASTDeclaration {
   };
  
   private final Type return_type;
-  private final DeclarationStatement[] args;
+  private DeclarationStatement[] args;
   private final boolean var_args;
   private Hashtable<String, Contract> spec=new Hashtable<String,Contract>();
   private ASTNode body;
@@ -63,11 +66,16 @@ public class Method extends ASTDeclaration {
   public boolean usesVarArgs(){
     return var_args;
   }
+  
+  public Method(String name, Type return_type, DeclarationStatement[] typeParameters, Type[] signals, Contract contract, DeclarationStatement args[], boolean varArgs, ASTNode body){
+    this(Kind.Plain,name,return_type, signals, typeParameters,contract,args,varArgs,body);
+  }
+
 
   public Method(Kind kind,
                 String name,
                 Type return_type,
-                Type[] throwy,
+                Type[] signals,
                 DeclarationStatement[] typeParameters,
                 Contract contract,
                 DeclarationStatement args[],
@@ -75,8 +83,8 @@ public class Method extends ASTDeclaration {
                 ASTNode body){
     super(name);
     this.return_type=return_type;
+    this.signals = signals;
     this.args=Arrays.copyOf(args,args.length);
-    this.throwy = throwy;
     this.var_args=varArgs;
     for(int i=0;i<args.length;i++){
       if (this.args[i].getParent()==null) this.args[i].setParent(this);
@@ -101,12 +109,8 @@ public class Method extends ASTDeclaration {
       i++;
     }
     this.typeParameters = new DeclarationStatement[0];
-    this.throwy = new Type[0];
+    this.signals = new Type[0];
     this.kind=kind;
-  }
-
-  public Method(String name,Type return_type,Type[] throwy,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
-    this(Kind.Plain,name,return_type,throwy,new DeclarationStatement[0],contract,args,varArgs,body);
   }
 
   public Method(String name,Type return_type,Contract contract,DeclarationStatement args[],boolean varArgs,ASTNode body){
@@ -305,7 +309,7 @@ public class Method extends ASTDeclaration {
     if (node instanceof MethodInvokation){
       MethodInvokation s=(MethodInvokation)node;
       if (s.getDefinition()==target) return true;
-      if (find(target,scanned,s.object)) return true;
+      if (find(target,scanned,s.object())) return true;
       for(ASTNode child:s.getArgs()){
         if (find(target,scanned,child)) return true;
       }
@@ -317,8 +321,8 @@ public class Method extends ASTDeclaration {
     }
     if (node instanceof BindingExpression){
       BindingExpression abs=(BindingExpression)node;
-      if (find(target,scanned,abs.main)) return true;
-      return find(target,scanned,abs.select);
+      if (find(target,scanned,abs.main())) return true;
+      return find(target,scanned,abs.select());
     }
     if (node instanceof PrimitiveType){
       return false;
@@ -334,6 +338,56 @@ public class Method extends ASTDeclaration {
   public boolean isOverloaded() {
     ASTClass cl=(ASTClass)getParent();
     return cl.isOverloaded(name());
+  }
+
+  /**
+   * Method is synchronized if one of the annotations is the Synchronized keyword.
+   */
+  public boolean isSynchronized() {
+    ASTList annotations = annotations();
+
+    for (ASTNode annotation : annotations) {
+      if (annotation instanceof NameExpression) {
+        NameExpression modifier = (NameExpression) annotation;
+        if (modifier.isReserved(ASTReserved.Synchronized)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  public void prependArg(Origin o, String name, Type type, boolean outArg) {
+    DeclarationStatement newArg = new DeclarationStatement(name, type, Option.empty());
+    newArg.setOrigin(o);
+    if (outArg) {
+      newArg.setFlag(ASTFlags.OUT_ARG, true);
+    }
+
+    LinkedList<DeclarationStatement> argList = new LinkedList<>(Arrays.asList(args));
+    argList.add(0, newArg);
+    args = argList.toArray(new DeclarationStatement[0]);
+  }
+
+  /**
+   * True if the method "can throw" as defined in the Java spec, which means it must have exceptions
+   * in the throws attribute.
+   * See: https://docs.oracle.com/javase/specs/jls/se7/html/jls-11.html#jls-11.2
+   */
+  public boolean canThrow() {
+    return signals.length > 0;
+  }
+
+  /**
+   * True if the method is specified to throw, i.e. has signals clauses, or can throw according
+   * to the java spec.
+   *
+   * Note that a signals clause does not guarantee an exception is thrown.
+   * Example: "signals (Exception e) false;" guarantees an "Exception" will never be thrown.
+   */
+  public boolean canThrowSpec() {
+    return (getContract() != null && getContract().signals.length > 0) || canThrow();
   }
 }
 

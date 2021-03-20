@@ -4,8 +4,7 @@ import vct.col.ast.expr.*;
 import vct.col.ast.expr.constant.ConstantExpression;
 import vct.col.ast.expr.constant.StructValue;
 import vct.col.ast.generic.ASTNode;
-import vct.col.ast.langspecific.*;
-import vct.col.ast.langspecific.c.CFunctionType;
+import vct.col.ast.langspecific.c.*;
 import vct.col.ast.stmt.composite.*;
 import vct.col.ast.stmt.decl.*;
 import vct.col.ast.stmt.terminal.AssignmentStatement;
@@ -343,4 +342,16 @@ public class EmptyVisitor<T> implements ASTVisitor<T> {
   public void visit(OMPForSimd loop) {
 
   }
+
+  @Override
+  public void visit(InlineQuantifierPattern pattern) { }
+
+  @Override
+  public void visit(CatchClause cc) { }
+
+  @Override
+  public void visit(SignalsClause sc) { }
+
+  @Override
+  public void visit(KernelInvocation ki) { }
 }

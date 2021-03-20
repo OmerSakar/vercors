@@ -5,11 +5,8 @@ import hre.ast.MessageOrigin;
 import hre.ast.Origin;
 import hre.ast.TrackingOutput;
 import hre.lang.HREError;
-import vct.col.ast.expr.OperatorExpression;
-import vct.col.ast.expr.StandardOperator;
+import vct.col.ast.expr.*;
 import vct.col.ast.expr.constant.ConstantExpression;
-import vct.col.ast.expr.MethodInvokation;
-import vct.col.ast.expr.NameExpression;
 import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.composite.Hole;
 import vct.col.ast.stmt.decl.ASTSpecial;
@@ -151,15 +148,15 @@ public class AbstractPrinter extends AbstractVisitor<Object> {
   public void visit(MethodInvokation e){
     //boolean statement=!in_expr;
     setExpr();
-    if (e.object!=null) {
+    if (e.object()!=null) {
       // TODO: manage precedence properly.
-      e.object.accept(this);
+      e.object().accept(this);
       out.printf(".");
     }
-    out.printf("%s",e.method);
-    if (e.dispatch!=null){
+    out.printf("%s",e.method());
+    if (e.dispatch()!=null){
       out.printf("@");
-      e.dispatch.accept(this);
+      e.dispatch().accept(this);
     }
     out.printf("(");
     int N=e.getArity();
@@ -175,6 +172,23 @@ public class AbstractPrinter extends AbstractVisitor<Object> {
       current_precedence=precedence;
     }
     out.print(")");
+  }
+
+  public void visit(KernelInvocation e) {
+    setExpr();
+    out.printf("%s", e.method());
+    out.printf("<<<");
+    e.blockCount().accept(this);
+    out.printf(", ");
+    e.threadCount().accept(this);
+    out.printf(">>>(");
+    boolean first = true;
+    for(ASTNode arg : e.javaArgs()) {
+      if(!first) out.printf(", ");
+      arg.accept(this);
+      first = false;
+    }
+    out.printf(")");
   }
 
   public void visit(OperatorExpression e){
@@ -213,21 +227,6 @@ public class AbstractPrinter extends AbstractVisitor<Object> {
   
   public void visit(ASTSpecial s){
     switch(s.kind){
-    case Comment:
-      String lines[]=s.args[0].toString().split("\n");
-      for(int i=0;i<lines.length;i++){
-        out.println(lines[i]);
-      }
-      break;
-    case Pragma:
-      out.printf("@pragma(\"%s\")%n", s.args[0]);
-      break;
-    case Modifies:
-      out.println("modifies ...");
-      break;
-    case Accessible:
-      out.println("accessible ...");
-      break;
     default:
       if (s.args.length==0){
         out.printf("%s;%n",s.kind);

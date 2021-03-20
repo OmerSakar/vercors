@@ -3,6 +3,7 @@ package vct.col.rewrite;
 import vct.col.ast.expr.constant.StructValue;
 import vct.col.ast.generic.ASTNode;
 import vct.col.ast.stmt.decl.ASTClass;
+import vct.col.ast.stmt.decl.ASTFlags;
 import vct.col.ast.type.ASTReserved;
 import vct.col.ast.stmt.decl.AxiomaticDataType;
 import vct.col.ast.stmt.composite.BlockStatement;
@@ -16,6 +17,8 @@ import vct.col.ast.type.PrimitiveSort;
 import vct.col.ast.type.Type;
 import vct.col.ast.util.AbstractRewriter;
 import vct.col.ast.util.ClassName;
+
+import java.util.Objects;
 
 /**
  * Standardize the representation of programs.
@@ -45,22 +48,27 @@ public class Standardize extends AbstractRewriter {
   }
 
   public void visit(MethodInvokation e){
-    ASTNode object=rewrite(e.object);
+    ASTNode object=rewrite(e.object());
+    if(object == null && e.definition() != null && current_class != null) {
+      if(e.definition().isValidFlag(ASTFlags.STATIC) && e.definition().isStatic()) {
+        object = create.class_type(current_class.name);
+      }
+    }
     if(object==null){
-      Method m=source().find_adt(e.method);
+      Method m=source().find_adt(e.method());
       if (m!=null){
         String adt = ((AxiomaticDataType)m.getParent()).name();
         object=create.class_type(adt);
       }
     }
     if (object==null){
-      if (e.method.equals(Method.JavaConstructor)){
+      if (e.method().equals(Method.JavaConstructor)){
         object=null;
       } else if (current_class()!=null && current_class().kind != ASTClass.ClassKind.Abstract) {
         object=create.this_expression(create.class_type(current_class().getFullName()));
       }
     }
-    MethodInvokation res=create.invokation(object, rewrite(e.dispatch), e.method, rewrite(e.getArgs()));
+    MethodInvokation res=create.invokation(object, rewrite(e.dispatch()), e.method(), rewrite(e.getArgs()));
     res.set_before(rewrite(e.get_before()));
     res.set_after(rewrite(e.get_after()));
     result=res;
@@ -70,9 +78,7 @@ public class Standardize extends AbstractRewriter {
     switch(e.getKind()){
       case Field:{
         Method m=current_method();
-        if (m==null) {
-          Fail("cannot support expressions outside of method definitions yet.");
-        }
+        Objects.requireNonNull(m, "cannot support expressions outside of method definitions yet.");
         if (m.isStatic()){
           result=create.dereference(create.class_type(current_class().getFullName()),e.getName());
         } else {
@@ -113,71 +119,7 @@ public class Standardize extends AbstractRewriter {
 
   @Override
   public void visit(OperatorExpression e){
-    if (e.getParent() instanceof BlockStatement){
-      switch(e.operator()){
-        case Assign:
-        {
-          ASTNode var=e.arg(0).apply(this);
-          ASTNode val=e.arg(1).apply(this);
-          result=create.assignment(var,val);
-          break;
-        }
-        case PostIncr:
-        case PreIncr:
-        {
-          ASTNode arg=e.arg(0);
-          if (arg instanceof NameExpression){
-            ASTNode incr=create.expression(e.getOrigin(),StandardOperator.Plus,rewrite(arg),create.constant(e.getOrigin(),1));
-            result=create.assignment(rewrite(arg),incr);
-          } else {
-            super.visit(e);
-          }
-          break;
-        }
-        case PostDecr:
-        case PreDecr:
-        {
-          ASTNode arg=e.arg(0);
-          if (arg instanceof NameExpression){
-            ASTNode incr=create.expression(e.getOrigin(),StandardOperator.Minus,rewrite(arg),create.constant(e.getOrigin(),1));
-            result=create.assignment(rewrite(arg),incr);
-          } else {
-            super.visit(e);
-          }
-          break;
-        }
-      }
-    }
-
     switch (e.operator()) {
-      case PrependSingle: {
-        Type seqElementType = e.arg(0).getType();
-        if (seqElementType != null) {
-          ASTNode var = e.arg(0).apply(this);
-          ASTNode seq = e.arg(1).apply(this);
-
-          StructValue newSeq = create.struct_value(create.primitive_type(PrimitiveSort.Sequence, seqElementType), null, var);
-          result = create.expression(StandardOperator.Append, newSeq, seq);
-        } else {
-          super.visit(e);
-        }
-        break;
-      }
-      case AppendSingle:
-      {
-        Type seqElementType = e.arg(1).getType();
-        if (seqElementType != null) {
-          ASTNode var = e.arg(1).apply(this);
-          ASTNode seq = e.arg(0).apply(this);
-
-          StructValue newSeq = create.struct_value(create.primitive_type(PrimitiveSort.Sequence, seqElementType), null, var);
-          result = create.expression(StandardOperator.Append, seq, newSeq);
-
-        } else {
-          super.visit(e);
-        }
-        break;
-      }
       case Empty: {
         Type seqElementType = e.arg(0).getType();
         ASTNode seq = e.arg(0).apply(this);

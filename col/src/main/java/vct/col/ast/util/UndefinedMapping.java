@@ -1,7 +1,7 @@
 package vct.col.ast.util;
 
 import hre.lang.HREError;
-import vct.col.ast.langspecific.*;
+import vct.col.ast.langspecific.c.*;
 import vct.col.ast.langspecific.c.CFunctionType;
 import vct.col.ast.stmt.decl.VariableDeclaration;
 import vct.col.ast.stmt.composite.VectorBlock;
@@ -300,4 +300,23 @@ public class UndefinedMapping<T> implements ASTMapping<T> {
     return null;
   }
 
+  @Override
+  public T map(InlineQuantifierPattern pattern) {
+    return null;
+  }
+
+  @Override
+  public T map(CatchClause cc) {
+    return null;
+  }
+
+  @Override
+  public T map(SignalsClause sc) {
+    return null;
+  }
+
+  @Override
+  public T map(KernelInvocation ki) {
+    return null;
+  }
 }

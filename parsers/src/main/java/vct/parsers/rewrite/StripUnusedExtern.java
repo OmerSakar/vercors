@@ -43,7 +43,7 @@ public class StripUnusedExtern extends AbstractRewriter {
       defined_names.add(m.name());
       Method ext = externs.get(m.name());
       if (ext != null) {
-        if (!m.getContract().isEmpty()){
+        if (m.getContract() != null && !m.getContract().isEmpty()){
           Fail("%s: contract must be written for the extern declaration",m.getOrigin());
         }
         defined_names.add(m.name());
@@ -53,9 +53,9 @@ public class StripUnusedExtern extends AbstractRewriter {
     
     @Override
     public void visit(MethodInvokation s){
-      Method ext=externs.get(s.method);
+      Method ext=externs.get(s.method());
       if (ext!=null) {
-        used_externs.add(s.method);
+        used_externs.add(s.method());
       }
       super.visit(s);
     }

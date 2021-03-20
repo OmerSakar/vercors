@@ -5,10 +5,7 @@ import vct.col.ast.expr.MethodInvokation;
 import vct.col.ast.expr.NameExpression;
 import vct.col.ast.expr.StandardOperator;
 import vct.col.ast.generic.ASTNode;
-import vct.col.ast.stmt.decl.ASTClass;
-import vct.col.ast.stmt.decl.DeclarationStatement;
-import vct.col.ast.stmt.decl.Method;
-import vct.col.ast.stmt.decl.ProgramUnit;
+import vct.col.ast.stmt.decl.*;
 import vct.col.ast.type.ClassType;
 import vct.col.ast.type.Type;
 import vct.col.ast.util.AbstractRewriter;
@@ -26,7 +23,7 @@ public class MonomorphizeGenericClass extends AbstractRewriter {
         super(source);
     }
 
-    private Map<ClassType, Set<List<Type>>> genericsTypes = new HashMap<>();
+    private final Map<ClassType, Set<List<Type>>> genericsTypes = new HashMap<>();
 
     @Override
     public ProgramUnit rewriteAll() {
@@ -48,14 +45,14 @@ public class MonomorphizeGenericClass extends AbstractRewriter {
 
     @Override
     public void visit(MethodInvokation e) {
-        if (e.dispatch != null && e.dispatch.params()!= null && !e.dispatch.params().isEmpty() && Method.JavaConstructor.equals(e.method)) {
-            StringBuilder generatedName = new StringBuilder(String.join("", JavaConverters.seqAsJavaList(e.dispatch.names())));
-            if (e.dispatch.params().length() > 0) {
-                for (ASTNode type : JavaConverters.seqAsJavaList(e.dispatch.params())) {
+        if (e.dispatch() != null && e.dispatch().params()!= null && !e.dispatch().params().isEmpty() && Method.JavaConstructor.equals(e.method())) {
+            StringBuilder generatedName = new StringBuilder(String.join("", JavaConverters.seqAsJavaList(e.dispatch().names())));
+            if (e.dispatch().args().length() > 0) {
+                for (ASTNode type : JavaConverters.seqAsJavaList(e.dispatch().args())) {
                     generatedName.append("_").append(type.toString());
                 }
             }
-            result = create.new_object(create.class_type(generatedName.toString()), rewrite(e.getArgs()));
+            result = create.new_object(create.class_type(generatedName.toString()));
         } else {
             super.visit(e);
         }
